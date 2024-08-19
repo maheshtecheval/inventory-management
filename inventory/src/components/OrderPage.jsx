@@ -25,6 +25,7 @@ function OrderPage() {
           `http://localhost:5000/api/orders?page=${currentPage}&limit=${ITEMS_PER_PAGE}`
         );
         const data = await response.json();
+
         setOrders(data.orders || []);
         setFilteredOrders(data.orders || []); // Default to the fetched orders initially
         setTotalPages(data.totalPages || 1);
@@ -62,8 +63,11 @@ function OrderPage() {
     if (page < 1 || page > totalPages) return;
     setCurrentPage(page);
   };
-
-
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat("en-GB").format(date); // Formats to DD-MM-YYYY
+  };
+  console.log(orders, 67);
   return (
     <Container className="mt-2" fluid>
       <InputGroup className="mb-3">
@@ -90,7 +94,7 @@ function OrderPage() {
               <th>Address</th>
               <th>Status</th>
               <th>Total Amount</th>
-
+              <th>Date</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -110,13 +114,14 @@ function OrderPage() {
                   <td>
                     ₹{order.totalAmount ? order.totalAmount.toFixed(2) : "N/A"}
                   </td>
+                  <td>{formatDate(order.createdAt)}</td>
                   <td>
                     <Button
                       variant="btn-info"
                       size="sm"
                       // onClick={() => handleDelete(order._id)}
                     >
-                     <i className="bi bi-eye"></i>
+                      <i className="bi bi-eye"></i>
                     </Button>
                   </td>
                 </tr>

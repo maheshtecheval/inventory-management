@@ -31,7 +31,7 @@
   
     .custom-table th:nth-child(7),
     .custom-table td:nth-child(7) {
-      width: 60px;
+      width: 100px;
     }
   
     .custom-table th:nth-child(9),
@@ -61,7 +61,7 @@
   
     .custom-table th:nth-child(3),
     .custom-table td:nth-child(3) {
-      width: 110px;
+      width: 70px;
     }
   
     .custom-table th:nth-child(2),
@@ -76,6 +76,10 @@
     .custom-table th,
     .custom-table td {
       min-width: 150px;
+    }
+
+    .mobileQuantity{
+      width: 200px;
     }
   }
   

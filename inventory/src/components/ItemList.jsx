@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Modal, Button, Form, Table } from "react-bootstrap"; // Import necessary Bootstrap components
+import { Modal, Button, Form, Table, Row, Col, Card } from "react-bootstrap"; // Import necessary Bootstrap components
 import SearchBar from "./SearchBar";
 import OrderSummary from "./OrderSummary";
 import { Link } from "react-router-dom";
@@ -13,7 +13,31 @@ function ItemList() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedItems, setSelectedItems] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showCaregory, setshowCaregory] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
+  const [sortOrder, setSortOrder] = useState("asc");
+  const [data, setData] = useState([]);
+
+  const showCaregorywise = () => {
+    setshowCaregory(!showCaregory);
+  };
+  const sortItems = (order) => {
+    const sortedItems = [...filteredItems].sort((a, b) => {
+      if (order === "asc") {
+        return a.quantity - b.quantity;
+      } else {
+        return b.quantity - a.quantity;
+      }
+    });
+    return sortedItems;
+  };
+
+  const handleSort = () => {
+    const newOrder = sortOrder === "asc" ? "desc" : "asc";
+    setSortOrder(newOrder);
+  };
+
+  const sortedItems = sortItems(sortOrder);
 
   useEffect(() => {
     try {
@@ -29,6 +53,19 @@ function ItemList() {
     }
   }, []);
 
+  useEffect(() => {
+    const fetchDashbordStats = async () => {
+      const response = await fetch(
+        "http://localhost:5000/api/items/dashboard-stats"
+      );
+      const statdata = await response.json();
+      if (response.ok) {
+        setData(statdata);
+      }
+    };
+    fetchDashbordStats();
+  }, []);
+  console.log(data, 60);
   const handleSearch = (query) => {
     const lowercasedQuery = query.toLowerCase();
     const filtered = items.filter(
@@ -49,13 +86,17 @@ function ItemList() {
       setSelectedItems([]);
     }
   };
-
-  const handleItemSelect = (itemId) => {
-    setSelectedItems((prev) =>
-      prev.includes(itemId)
-        ? prev.filter((id) => id !== itemId)
-        : [...prev, itemId]
-    );
+  console.log(sortedItems);
+  const handleItemSelect = (itemId, quantity) => {
+    if (quantity > 0) {
+      setSelectedItems((prev) =>
+        prev.includes(itemId)
+          ? prev.filter((id) => id !== itemId)
+          : [...prev, itemId]
+      );
+    } else {
+      toast.info("Item out of stock");
+    }
   };
 
   const handleDelete = async (id) => {
@@ -114,14 +155,107 @@ function ItemList() {
   };
 
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const currentItems = filteredItems.slice(
+  const currentItems = sortedItems.slice(
     startIndex,
     startIndex + ITEMS_PER_PAGE
   );
 
   return (
     <div className="container-fluid">
-      <SearchBar onSearch={handleSearch} />
+      <div className="container-fluid mt-2">
+        {data.categoryWiseQuantity ? (
+          <>
+            <Row className="g-2" fluid>
+              <Col md={2}>
+                <Card className="text-center">
+                  <Card.Body>
+                    <Card.Title>Total Items</Card.Title>
+                    <Card.Text>{data.totalItems}</Card.Text>
+                  </Card.Body>
+                </Card>
+              </Col>
+
+              <Col md={2}>
+                <Card className="text-center">
+                  <Card.Body>
+                    <Card.Title>Total Quantity</Card.Title>
+                    <Card.Text>{data.totalQuantity} </Card.Text>
+                  </Card.Body>
+                </Card>
+              </Col>
+
+              <Col md={3}>
+                <Card className="text-center">
+                  <Card.Body>
+                    <Card.Title>Highest Order Amount</Card.Title>
+                    <Card.Text>
+                      ₹{data.totalOrderAmount} | Highest Order: ₹
+                      {data.highestOrderAmount}{" "}
+                    </Card.Text>
+                  </Card.Body>
+                </Card>
+              </Col>
+
+              <Col md={3}>
+                <Card className="text-center">
+                  <Card.Body>
+                    <Card.Title>Highest Selling Item</Card.Title>
+                    <Card.Text>
+                      {data.highestSellItem._id} | Total Sold:{" "}
+                      {data.highestSellItem.totalSold}
+                    </Card.Text>
+                  </Card.Body>
+                </Card>
+              </Col>
+              <Col md={2}>
+                <Card className="text-center m-1">
+                  <Card.Body>
+                    <Card.Text>
+                      <Button
+                        className="btn btn-info btn-sm m-2"
+                        onClick={showCaregorywise}
+                      >
+                        {" "}
+                        <i className="bi bi-eye"></i> Category Wise Quantity
+                      </Button>
+                    </Card.Text>
+                  </Card.Body>
+                </Card>
+              </Col>
+              {showCaregory ? (
+                <>
+                  {" "}
+                  <Col md={12}>
+                    <Card>
+                      <Card.Body>
+                        <Card.Title>Category Wise Quantity</Card.Title>
+                        <ul className="list-group list-group-flush">
+                          {data.categoryWiseQuantity.map((category, index) => (
+                            <li
+                              key={index}
+                              className="list-group-item d-flex justify-content-between align-items-center list-group-item list-group-item-action list-group-item-primary"
+                            >
+                              <span>{category.category}</span>
+                              <span>{category.totalQuantity}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </Card.Body>
+                    </Card>
+                  </Col>
+                </>
+              ) : (
+                <></>
+              )}
+            </Row>{" "}
+          </>
+        ) : (
+          <></>
+        )}
+      </div>
+      <div className="d-flex justify-content-center">
+        <SearchBar onSearch={handleSearch} />{" "}
+      </div>
       <div className="table-responsive custom-table-wrapper">
         <Table className="table table-hover align-middle table-bordered custom-table">
           <thead>
@@ -130,11 +264,13 @@ function ItemList() {
                 <input type="checkbox" onChange={handleSelectAll} />
               </th>
               <th>Name</th>
+              <th onClick={handleSort} style={{ cursor: "pointer" }}>
+                Quantity {sortOrder === "asc" ? "▲" : "▼"}
+              </th>
               <th>Style</th>
               <th>Size</th>
               <th>Design</th>
               <th>Shed</th>
-              <th>Quant</th>
               <th>Price</th>
               <th>Unit</th>
               <th>Category</th>
@@ -148,15 +284,27 @@ function ItemList() {
                   <input
                     type="checkbox"
                     checked={selectedItems.includes(item._id)}
-                    onChange={() => handleItemSelect(item._id)}
+                    onChange={() => handleItemSelect(item._id, item.quantity)}
                   />
                 </td>
                 <td>{item.name}</td>
+                <td
+                  style={{
+                    color:
+                      item.quantity === 0
+                        ? "red"
+                        : item.quantity < 10
+                        ? "orange"
+                        : "green",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {item.quantity}
+                </td>
                 <td>{item.style}</td>
                 <td>{item.size}</td>
                 <td>{item.design}</td>
                 <td>{item.shed}</td>
-                <td>{item.quantity}</td>
                 <td>{item.price}</td>
                 <td>{item.unit}</td>
                 <td>{item.category}</td>

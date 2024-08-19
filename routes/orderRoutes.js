@@ -260,6 +260,91 @@ router.post("/create-order", async (req, res) => {
   }
 });
 
+router.post("/order-without-bill", async (req, res) => {
+  try {
+    const { customerName, mobile, email, address, items } = req.body;
+
+    if (
+      !customerName ||
+      !mobile ||
+      !items ||
+      !Array.isArray(items) ||
+      items.length === 0
+    ) {
+      return res.status(400).json({
+        message:
+          "All required fields (customerName, mobile,  items) must be provided, and items must be an array with at least one item.",
+      });
+    }
+
+    // Fetch item details based on the provided item IDs
+    const itemDetails = await Item.find({
+      _id: { $in: items.map((item) => item._id) },
+    });
+
+    // Calculate total for each item and overall total, and update item quantities
+    const processedItems = itemDetails.map((item) => {
+      const orderItem = items.find((i) => i._id === String(item._id)); // Ensure proper comparison
+
+      if (!orderItem) {
+        throw new Error(`Item with ID ${item._id} not found in the order`);
+      }
+
+      const orderQuantity = Number(orderItem.quantity);
+      const itemPrice = Number(item.price);
+
+      // Check for stock availability
+      if (item.quantity < orderQuantity) {
+        throw new Error(`Not enough stock for item: ${item.name}`);
+      }
+
+      // Reduce item stock by the ordered quantity
+      item.quantity -= orderQuantity;
+      item.save(); // Save the updated item to the database
+
+      return {
+        _id: item._id,
+        name: item.name,
+        size: item.size,
+        design: item.design,
+        shed: item.shed,
+        price: itemPrice,
+        quantity: orderQuantity,
+        total: itemPrice * orderQuantity,
+      };
+    });
+
+    const totalAmount = processedItems.reduce(
+      (acc, item) => acc + item.total,
+      0
+    );
+
+    // Save order to database
+    const newOrder = new Order({
+      customerName,
+      mobile,
+      email: email || "NA",
+      address: address || "NA",
+      items: processedItems.map((item) => ({
+        _id: item._id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        item_total_price: item.price * item.quantity,
+      })),
+      totalAmount,
+    });
+
+    await newOrder.save();
+    res.json({
+      message: "Order created and PDF generated",
+      data: newOrder,
+    });
+  } catch (error) {
+    console.error("Error creating order:", error.message);
+    res.status(500).json({ message: error.message || "Server error" });
+  }
+});
 //4. Order API - search orders by customerName
 router.get("/search", async (req, res) => {
   try {

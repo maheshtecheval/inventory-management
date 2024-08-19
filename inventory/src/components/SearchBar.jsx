@@ -40,7 +40,7 @@ function SearchBar({ onSearch }) {
     <>
       <div className="container my-2">
         <div className="row custom-row  ">
-          <div className="col-md-8 custom-col ">
+          <div className="col-md-10 custom-col ">
             <input
               className="form-control"
               type="text"
@@ -49,7 +49,7 @@ function SearchBar({ onSearch }) {
               placeholder="Search items..."
             />
           </div>
-          <div className="col-md-4 custom-col">
+          <div className="col-md-2 custom-col">
             <button className="btn btn-primary" onClick={handleShowForm}>
               Add New Item
             </button>
