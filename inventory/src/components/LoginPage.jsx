@@ -1,32 +1,34 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import 'bootstrap/dist/css/bootstrap.min.css';
-import { Container, Form, Button } from 'react-bootstrap';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import "bootstrap/dist/css/bootstrap.min.css";
+import { Container, Form, Button } from "react-bootstrap";
+import { toast } from "react-toastify";
 
 const LoginPage = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+      const response = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await response.json();
       if (response.ok) {
-        localStorage.setItem('token', data.token);
-        navigate('/');
+        localStorage.setItem("token", data.token);
+        toast.success("Login successfully...!");
+        navigate("/");
       } else {
         setError(data.message);
       }
     } catch (error) {
-      setError('Something went wrong');
+      setError("Something went wrong");
     }
   };
 
@@ -55,7 +57,9 @@ const LoginPage = () => {
             required
           />
         </Form.Group>
-        <Button variant="primary" type="submit">Login</Button>
+        <Button variant="primary" type="submit">
+          Login
+        </Button>
       </Form>
     </Container>
   );

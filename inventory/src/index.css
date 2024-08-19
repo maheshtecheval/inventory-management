@@ -1,0 +1,106 @@
+@media (max-width: 768px) {
+    .custom-table-wrapper {
+      overflow-x: auto;
+    }
+  
+    .custom-table {
+      table-layout: fixed;
+      width: 100%;
+      white-space: nowrap;
+    }
+  
+    .custom-table th,
+    .custom-table td {
+      vertical-align: middle;
+      text-align: center;
+    }
+  
+    .custom-table th:nth-child(1),
+    .custom-table td:nth-child(1) {
+      position: sticky;
+      width: 50px;
+      left: 0;
+      z-index: 1;
+      background: rgb(214, 121, 7);
+    }
+  
+    .custom-table th:nth-child(8),
+    .custom-table td:nth-child(8) {
+      width: 60px;
+    }
+  
+    .custom-table th:nth-child(7),
+    .custom-table td:nth-child(7) {
+      width: 60px;
+    }
+  
+    .custom-table th:nth-child(9),
+    .custom-table td:nth-child(9) {
+      width: 60px;
+    }
+  
+    .custom-table th:nth-child(10),
+    .custom-table td:nth-child(10) {
+      width: 80px;
+    }
+  
+    .custom-table th:nth-child(6),
+    .custom-table td:nth-child(6) {
+      width: 120px;
+    }
+  
+    .custom-table th:nth-child(5),
+    .custom-table td:nth-child(5) {
+      width: 100px;
+    }
+  
+    .custom-table th:nth-child(4),
+    .custom-table td:nth-child(4) {
+      width: 110px;
+    }
+  
+    .custom-table th:nth-child(3),
+    .custom-table td:nth-child(3) {
+      width: 110px;
+    }
+  
+    .custom-table th:nth-child(2),
+    .custom-table td:nth-child(2) {
+      position: sticky;
+      width: 200px;
+      left: 50px;
+      z-index: 2;
+      background: rgb(246, 245, 245);
+    }
+  
+    .custom-table th,
+    .custom-table td {
+      min-width: 150px;
+    }
+  }
+  
+
+  /* Custom styles for mobile view */
+@media (max-width: 767.98px) {
+    .custom-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px; /* Adjust gap between items as needed */
+    }
+  
+    .custom-col {
+      flex: 1;
+      min-width: 0; /* Allow column to shrink if needed */
+    }
+  
+    .custom-col input {
+      width: 100%;
+      box-sizing: border-box; /* Ensure padding and border are included in width */
+    }
+
+    .custom-col button {
+        width: 100%;
+        box-sizing: border-box; /* Ensure padding and border are included in width */
+      }
+  }
+  

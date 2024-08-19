@@ -38,9 +38,9 @@ function SearchBar({ onSearch }) {
 
   return (
     <>
-      <div className="container m-2">
-        <div className="row">
-          <div className="col-md-3">
+      <div className="container my-2">
+        <div className="row custom-row  ">
+          <div className="col-md-8 custom-col ">
             <input
               className="form-control"
               type="text"
@@ -49,7 +49,7 @@ function SearchBar({ onSearch }) {
               placeholder="Search items..."
             />
           </div>
-          <div className="col-md-3">
+          <div className="col-md-4 custom-col">
             <button className="btn btn-primary" onClick={handleShowForm}>
               Add New Item
             </button>
@@ -85,6 +85,40 @@ function SearchBar({ onSearch }) {
                     onChange={handleChange}
                     placeholder="Style"
                   />
+                </div>
+              </div>
+              <div className="col-md-6">
+                <div className="form-group">
+                  <label>Category</label>
+                  <select
+                    className="form-control"
+                    name="category"
+                    value={item.category}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">Select Category</option>
+                    <option value="Tiles">Tiles</option>
+                    <option value="Bath Tub">Bath Tub</option>
+                    <option value="Wash Basin">Wash Basin</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="col-md-6">
+                <div className="form-group">
+                  <label>Unit</label>
+                  <select
+                    className="form-control"
+                    name="unit"
+                    value={item.unit}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">Select Unit</option>
+                    <option value="Box">Box</option>
+                    <option value="No">No</option>
+                  </select>
                 </div>
               </div>
 
@@ -160,45 +194,10 @@ function SearchBar({ onSearch }) {
                 </div>
               </div>
 
-              <div className="col-md-6">
-                <div className="form-group">
-                  <label>Unit</label>
-                  <select
-                    className="form-control"
-                    name="unit"
-                    value={item.unit}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">Select Unit</option>
-                    <option value="Box">Box</option>
-                    <option value="No">No</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="col-md-6">
-                <div className="form-group">
-                  <label>Category</label>
-                  <select
-                    className="form-control"
-                    name="category"
-                    value={item.category}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">Select Category</option>
-                    <option value="Tiles">Tiles</option>
-                    <option value="Bath Tub">Bath Tub</option>
-                    <option value="Wash Basin">Wash Basin</option>
-                  </select>
-                </div>
-              </div>
+              <button type="submit" className="btn btn-success mt-3">
+                Add
+              </button>
             </div>
-
-            <button type="submit" className="btn btn-success mt-3">
-              Add
-            </button>
           </form>
         )}
       </div>
