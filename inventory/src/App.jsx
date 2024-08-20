@@ -8,6 +8,7 @@ import OrderPage from "./components/OrderPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import "./App.css";
 import OrderDetailsByID from "./components/OrderDetailsByID";
+import PurchaseItems from "./components/PurchaseItems";
 function App() {
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -22,6 +23,7 @@ function App() {
         <Route path="/item/:id" element={<ItemDetails />} />
         <Route path="/order/:id" element={<OrderDetailsByID />} />
         <Route path="/orders" element={<ProtectedRoute element={<OrderPage />} />}/>
+        <Route path="/purchase" element={<ProtectedRoute element={<PurchaseItems />} />}/>
       </Routes>
     </Router>
   );

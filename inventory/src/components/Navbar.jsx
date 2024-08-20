@@ -19,6 +19,9 @@ function NavigationBar({ onLogout }) {
             <Link to="/orders" className="nav-link">
               Orders
             </Link>
+            <Link to="/purchase" className="nav-link">
+            Purchase
+            </Link>
           </Nav>
           <Button variant="outline-light" onClick={onLogout}>
             Logout

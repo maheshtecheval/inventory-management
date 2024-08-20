@@ -1,26 +1,22 @@
 import { useEffect, useState } from "react";
-import { Modal, Button, Form, Table, Row, Col, Card } from "react-bootstrap"; // Import necessary Bootstrap components
-import SearchBar from "./SearchBar";
-import OrderSummary from "./OrderSummary";
-import { Link } from "react-router-dom";
+import { Modal, Button, Form, Table } from "react-bootstrap";
 import { toast } from "react-toastify";
+import Pagination from 'react-bootstrap/Pagination';
 
 const ITEMS_PER_PAGE = 10;
 
-function ItemList() {
+function PurchaseItems() {
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [selectedItems, setSelectedItems] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [showCaregory, setshowCaregory] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
   const [sortOrder, setSortOrder] = useState("asc");
-  const [data, setData] = useState([]);
-
-  const showCaregorywise = () => {
-    setshowCaregory(!showCaregory);
-  };
+  const [isNewItem, setIsNewItem] = useState(false); // New state to track if adding a new item
+  const [purchases, setPurchases] = useState([]);
+  const [showPurchases, setShowPurchases] = useState(false);
+  const PURCHASES_PER_PAGE = 10; // Number of purchase items per page
+  const [currentPurchasePage, setCurrentPurchasePage] = useState(1);
   const sortItems = (order) => {
     const sortedItems = [...filteredItems].sort((a, b) => {
       if (order === "asc") {
@@ -40,32 +36,31 @@ function ItemList() {
   const sortedItems = sortItems(sortOrder);
 
   useEffect(() => {
-    try {
-      const fetchItems = async () => {
+    const fetchItems = async () => {
+      try {
         const response = await fetch("http://localhost:5000/api/items");
         const data = await response.json();
         setItems(data);
         setFilteredItems(data);
-      };
-      fetchItems();
-    } catch (error) {
-      console.error(error);
-    }
-  }, [items]);
-
-  useEffect(() => {
-    const fetchDashbordStats = async () => {
-      const response = await fetch(
-        "http://localhost:5000/api/items/dashboard-stats"
-      );
-      const statdata = await response.json();
-      if (response.ok) {
-        setData(statdata);
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to fetch items");
       }
     };
-    fetchDashbordStats();
-  }, []);
-  console.log(data, 60);
+     const fetchPurchases = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/items/purchases");
+        const data = await response.json();
+        setPurchases(data);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    fetchItems();
+    fetchPurchases();
+  }, [purchases, items]);
+
   const handleSearch = (query) => {
     const lowercasedQuery = query.toLowerCase();
     const filtered = items.filter(
@@ -79,74 +74,78 @@ function ItemList() {
     setCurrentPage(1);
   };
 
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedItems(filteredItems.map((item) => item._id));
-    } else {
-      setSelectedItems([]);
-    }
-  };
-  console.log(sortedItems);
-  const handleItemSelect = (itemId, quantity) => {
-    if (quantity > 0) {
-      setSelectedItems((prev) =>
-        prev.includes(itemId)
-          ? prev.filter((id) => id !== itemId)
-          : [...prev, itemId]
-      );
-    } else {
-      toast.info("Item out of stock");
-    }
-  };
-
-  const handleDelete = async (id) => {
-    try {
-      await fetch(`http://localhost:5000/api/items/${id}`, {
-        method: "DELETE",
-      });
-      setItems((prev) => prev.filter((item) => item._id !== id));
-      setFilteredItems((prev) => prev.filter((item) => item._id !== id));
-      toast.success("Delete Item successfully...");
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handleEdit = (item) => {
+  const handleAddNewPurchaseItems = (item) => {
     setCurrentItem(item);
+    setIsNewItem(false); // Existing item, not new
+    setShowModal(true);
+  };
+
+  const handleNewPurchase = () => {
+    setCurrentItem({
+      name: "",
+      style: "",
+      size: "",
+      design: "",
+      shed: "",
+      quantity: 0,
+      price: 0,
+      unit: "",
+      category: "",
+      notes: "",
+    });
+    setIsNewItem(true); // New item
     setShowModal(true);
   };
 
   const handleModalClose = () => {
     setShowModal(false);
     setCurrentItem(null);
+    setIsNewItem(false);
+  };
+  const handleTogglePurchases = () => {
+    setShowPurchases(!showPurchases);
   };
 
   const handleModalSave = async () => {
     try {
-      await fetch(`http://localhost:5000/api/items/${currentItem._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(currentItem),
-      });
-      setItems((prev) =>
-        prev.map((item) =>
-          item._id === currentItem._id ? { ...item, ...currentItem } : item
-        )
-      );
-      setFilteredItems((prev) =>
-        prev.map((item) =>
-          item._id === currentItem._id ? { ...item, ...currentItem } : item
-        )
-      );
-      handleModalClose();
-      toast.success('Items Ordered successfully...')
-    } catch (error) {
-      toast.error('Items Ordered Error...', error)
-    }
+      if (isNewItem) {
+        // Save new item to both PurchaseItem and Item schemas
+        const response = await fetch("http://localhost:5000/api/items/purchase/new", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(currentItem),
+        });
 
+        if (response.ok) {
+          toast.success("New item added successfully!");
+        } else {
+          toast.error("Failed to add new item");
+        }
+      } else {
+        // Save to PurchaseItem and update existing Item quantity
+        const response = await fetch("http://localhost:5000/api/items/purchase", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(currentItem),
+        });
+
+        if (response.ok) {
+          toast.success(
+            "Purchase recorded and item quantity updated successfully!"
+          );
+        } else {
+          toast.error("Failed to update item quantity");
+        }
+      }
+      handleModalClose();
+    } catch (error) {
+      console.error(error);
+      toast.error("An error occurred while saving the purchase");
+    }
   };
 
   const handleChange = (e) => {
@@ -165,110 +164,32 @@ function ItemList() {
     startIndex,
     startIndex + ITEMS_PER_PAGE
   );
-
+  const purchaseStartIndex = (currentPurchasePage - 1) * PURCHASES_PER_PAGE;
+  const currentPurchases = purchases.slice(
+    purchaseStartIndex,
+    purchaseStartIndex + PURCHASES_PER_PAGE
+  );
+  const handlePurchasePageChange = (page) => {
+    setCurrentPurchasePage(page);
+};
+  
   return (
-    <div className="container-fluid">
-      <div className="container-fluid mt-2">
-        {data.categoryWiseQuantity ? (
-          <>
-            <Row className="g-2" fluid>
-              <Col md={2}>
-                <Card className="text-center">
-                  <Card.Body>
-                    <Card.Title>Total Items</Card.Title>
-                    <Card.Text>{data.totalItems}</Card.Text>
-                  </Card.Body>
-                </Card>
-              </Col>
-
-              <Col md={2}>
-                <Card className="text-center">
-                  <Card.Body>
-                    <Card.Title>Total Quantity</Card.Title>
-                    <Card.Text>{data.totalQuantity} </Card.Text>
-                  </Card.Body>
-                </Card>
-              </Col>
-
-              <Col md={3}>
-                <Card className="text-center">
-                  <Card.Body>
-                    <Card.Title>Highest Order Amount</Card.Title>
-                    <Card.Text>
-                      ₹{data.totalOrderAmount} | Highest Order: ₹
-                      {data.highestOrderAmount}{" "}
-                    </Card.Text>
-                  </Card.Body>
-                </Card>
-              </Col>
-
-              <Col md={3}>
-                <Card className="text-center">
-                  <Card.Body>
-                    <Card.Title>Highest Selling Item</Card.Title>
-                    <Card.Text>
-                      {data.highestSellItem._id} | Total Sold:{" "}
-                      {data.highestSellItem.totalSold}
-                    </Card.Text>
-                  </Card.Body>
-                </Card>
-              </Col>
-              <Col md={2}>
-                <Card className="text-center m-1">
-                  <Card.Body>
-                    <Card.Text>
-                      <Button
-                        className="btn btn-info btn-sm m-2"
-                        onClick={showCaregorywise}
-                      >
-                        {" "}
-                        <i className="bi bi-eye"></i> Category Wise Quantity
-                      </Button>
-                    </Card.Text>
-                  </Card.Body>
-                </Card>
-              </Col>
-              {showCaregory ? (
-                <>
-                  {" "}
-                  <Col md={12}>
-                    <Card>
-                      <Card.Body>
-                        <Card.Title>Category Wise Quantity</Card.Title>
-                        <ul className="list-group list-group-flush">
-                          {data.categoryWiseQuantity.map((category, index) => (
-                            <li
-                              key={index}
-                              className="list-group-item d-flex justify-content-between align-items-center list-group-item list-group-item-action list-group-item-primary"
-                            >
-                              <span>{category.category}</span>
-                              <span>{category.totalQuantity}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </Card.Body>
-                    </Card>
-                  </Col>
-                </>
-              ) : (
-                <></>
-              )}
-            </Row>{" "}
-          </>
-        ) : (
-          <></>
-        )}
-      </div>
-      <div className="d-flex justify-content-center">
-        <SearchBar onSearch={handleSearch} />{" "}
+    <div className="container-fluid mt-3">
+      <div className="d-flex justify-content-between mb-2">
+        <Form.Control
+          type="text"
+          placeholder="Search..."
+          onChange={(e) => handleSearch(e.target.value)}
+        />
+        <Button variant="warning" onClick={handleNewPurchase}>
+          New
+        </Button>
       </div>
       <div className="table-responsive custom-table-wrapper">
         <Table className="table table-hover align-middle table-bordered custom-table">
           <thead>
             <tr>
-              <th>
-                <input type="checkbox" onChange={handleSelectAll} />
-              </th>
+              <td>Sr NO</td>
               <th>Name</th>
               <th onClick={handleSort} style={{ cursor: "pointer" }}>
                 Quantity {sortOrder === "asc" ? "▲" : "▼"}
@@ -284,15 +205,9 @@ function ItemList() {
             </tr>
           </thead>
           <tbody>
-            {currentItems.map((item) => (
+            {currentItems.map((item, index) => (
               <tr key={item._id}>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={selectedItems.includes(item._id)}
-                    onChange={() => handleItemSelect(item._id, item.quantity)}
-                  />
-                </td>
+                <td>{index + 1}</td>
                 <td>{item.name}</td>
                 <td
                   style={{
@@ -317,20 +232,9 @@ function ItemList() {
                 <td>
                   <button
                     className="btn btn-primary btn-sm me-2"
-                    onClick={() => handleEdit(item)}
+                    onClick={() => handleAddNewPurchaseItems(item)}
                   >
-                    <i className="bi bi-pen"></i>
-                  </button>
-                  <button className="btn btn-info btn-sm me-2">
-                    <Link to={`/item/${item._id}`}>
-                      <i className="bi bi-eye"></i>
-                    </Link>
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => handleDelete(item._id)}
-                  >
-                    <i className="bi bi-trash"></i>
+                    <i className="bi bi-plus"></i>
                   </button>
                 </td>
               </tr>
@@ -393,12 +297,70 @@ function ItemList() {
         </nav>
       </div>
 
-      <OrderSummary selectedItems={selectedItems} />
+      <div className="d-flex justify-content-end">
+        <Button variant="info" onClick={handleTogglePurchases}>
+          {showPurchases ? "Hide" : "Show"} Purchase Data
+        </Button>
+      </div>
 
+      {/* Purchase Data Table */}
+      <div className="table-responsive custom-table-wrapper mt-4">
+      <Table className="table table-hover align-middle table-bordered custom-table">
+        <thead>
+          <tr>
+            <th>Sr NO</th>
+            <th>Name</th>
+            <th>Quantity</th>
+            <th>Style</th>
+            <th>Size</th>
+            <th>Design</th>
+            <th>Shed</th>
+            <th>Price</th>
+            <th>Unit</th>
+            <th>Category</th>
+            <th>Notes</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {currentPurchases.map((purchase, index) => (
+            <tr key={purchase._id}>
+              <td>{purchaseStartIndex + index + 1}</td>
+              <td>{purchase.name}</td>
+              <td>{purchase.quantity}</td>
+              <td>{purchase.style}</td>
+              <td>{purchase.size}</td>
+              <td>{purchase.design}</td>
+              <td>{purchase.shed}</td>
+              <td>{purchase.price}</td>
+              <td>{purchase.unit}</td>
+              <td>{purchase.category}</td>
+              <td>{purchase.notes}</td>
+              <td>{new Date(purchase.createdAt).toLocaleDateString()}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </div>
+
+    {/* Pagination Controls for Purchases */}
+    <div className="d-flex justify-content-center">
+      <Pagination>
+        {Array.from({ length: Math.ceil(purchases.length / PURCHASES_PER_PAGE) }).map((_, idx) => (
+          <Pagination.Item
+            key={idx + 1}
+            active={idx + 1 === currentPurchasePage}
+            onClick={() => handlePurchasePageChange(idx + 1)}
+          >
+            {idx + 1}
+          </Pagination.Item>
+        ))}
+      </Pagination>
+    </div>
       {/* Modal for editing item */}
       <Modal show={showModal} onHide={handleModalClose}>
         <Modal.Header closeButton>
-          <Modal.Title>Edit Item</Modal.Title>
+          <Modal.Title>{isNewItem ? "Add New Item" : "Edit Item"}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {currentItem && (
@@ -510,4 +472,4 @@ function ItemList() {
   );
 }
 
-export default ItemList;
+export default PurchaseItems;

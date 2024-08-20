@@ -68,7 +68,9 @@ const OrderSummary = ({ selectedItems }) => {
         toast.success("Order created successfully!");
         setShowGenerateBill(false);
         setShowModal(false);
-        window.location.reload();
+        // setTimeout(() => {
+        //   window.location.reload();
+        // }, 700);
       } else {
         toast.error(result.message || "Failed to create order.");
       }
@@ -110,7 +112,9 @@ const OrderSummary = ({ selectedItems }) => {
         toast.success("Order created successfully!");
         setShowGenerateBill(false);
         setShowModal(false);
-        window.location.reload();
+        // setTimeout(() => {
+        //   window.location.reload();
+        // }, 700);
       } else {
         toast.error(result.message || "Failed to create order.");
       }

@@ -2,7 +2,18 @@ const express = require("express");
 const router = express.Router();
 const Item = require("../models/Item");
 const Order = require("../models/Order");
+const PurchaseItem = require("../models/PurchaseItem");
 
+// In routes/itemRoutes.js
+router.get('/purchases', async (req, res) => {
+  try {
+      const purchases = await PurchaseItem.find();
+      res.status(200).json(purchases);
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to fetch purchase data' });
+  }
+});
 router.get("/dashboard-stats", async (req, res) => {
   try {
     // 1. Total number of items
@@ -195,5 +206,91 @@ router.post("/get-multiple", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+router.post('/purchase/new', async (req, res) => {
+  const { name, style, size, design, shed, quantity, price, unit, category, notes } = req.body;
+
+  try {
+      // Create new purchase item
+      const newPurchaseItem = new PurchaseItem({
+          name,
+          style,
+          size,
+          design,
+          shed,
+          quantity,
+          price,
+          unit,
+          category,
+          notes,
+      });
+      await newPurchaseItem.save();
+
+      // Check if item already exists in Item schema
+      let item = await Item.findOne({name});
+      if (item) {
+          // If item exists, update its quantity
+          item.quantity += quantity;
+          await item.save();
+      } else {
+          // If item doesn't exist, create a new entry
+          const newItem = new Item({
+              name,
+              style,
+              size,
+              design,
+              shed,
+              quantity,
+              price,
+              unit,
+              category,
+              notes,
+          });
+          await newItem.save();
+      }
+
+      res.status(201).json({ message: 'New purchase item added successfully' });
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to add new purchase item' });
+  }
+});
+
+router.post('/purchase', async (req, res) => {
+  const { _id, quantity } = req.body;
+
+  try {
+      // Find the item by ID and update the quantity
+      let item = await Item.findById(_id);
+      if (item) {
+          item.quantity += parseInt(quantity, 10);
+          await item.save();
+
+          // Add a new record in the PurchaseItem schema
+          const newPurchaseItem = new PurchaseItem({
+              name: item.name,
+              style: item.style,
+              size: item.size,
+              design: item.design,
+              shed: item.shed,
+              quantity: parseInt(quantity, 10),
+              price: item.price,
+              unit: item.unit,
+              category: item.category,
+              notes: item.notes,
+          });
+          await newPurchaseItem.save();
+
+          res.status(200).json({ message: 'Item quantity updated and purchase recorded successfully' });
+      } else {
+          res.status(404).json({ error: 'Item not found' });
+      }
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to update item quantity' });
+  }
+});
+
+
 
 module.exports = router;
