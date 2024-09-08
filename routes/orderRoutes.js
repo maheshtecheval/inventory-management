@@ -273,7 +273,7 @@ router.post("/order-without-bill", async (req, res) => {
     ) {
       return res.status(400).json({
         message:
-          "All required fields (customerName, mobile,  items) must be provided, and items must be an array with at least one item.",
+          "All required fields (customerName, mobile, items) must be provided, and items must be an array with at least one item.",
       });
     }
 
@@ -282,62 +282,78 @@ router.post("/order-without-bill", async (req, res) => {
       _id: { $in: items.map((item) => item._id) },
     });
 
-    // Calculate total for each item and overall total, and update item quantities
-    const processedItems = itemDetails.map((item) => {
-      const orderItem = items.find((i) => i._id === String(item._id)); // Ensure proper comparison
+    // Calculate total for each item, process all size and design combinations, and update item quantities
+    const processedItems = await Promise.all(itemDetails.map(async (item) => {
+      const orderVariants = items.filter((i) => i._id === String(item._id)); // Get all variants (size/design combinations) for this item
 
-      if (!orderItem) {
-        throw new Error(`Item with ID ${item._id} not found in the order`);
-      }
+      const processedVariants = orderVariants.map((orderItem) => {
+        const orderQuantity = Number(orderItem.quantity);
+        const itemPrice = Number(item.price);
 
-      const orderQuantity = Number(orderItem.quantity);
-      const itemPrice = Number(item.price);
+        // Check for stock availability using 'size' and 'design' fields (not _id)
+        const size = item.size.find(s => s.size === orderItem.size); // Compare by size name, not _id
+        const design = item.designs.find(d => d.design === orderItem.design); // Compare by design name, not _id
 
-      // Check for stock availability
-      if (item.quantity < orderQuantity) {
-        throw new Error(`Not enough stock for item: ${item.name}`);
-      }
+        if (!size || size.quantity < orderQuantity) {
+          throw new Error(`Not enough stock for size ${size?.size || orderItem.size} of item: ${item.name}`);
+        }
+        if (!design || design.quantity < orderQuantity) {
+          throw new Error(`Not enough stock for design ${design?.design || orderItem.design} of item: ${item.name}`);
+        }
 
-      // Reduce item stock by the ordered quantity
-      item.quantity -= orderQuantity;
-      item.save(); // Save the updated item to the database
+        // Reduce item stock by the ordered quantity
+        size.quantity -= orderQuantity;
+        design.quantity -= orderQuantity;
+        item.totalQuantity -= orderQuantity;
 
-      return {
-        _id: item._id,
-        name: item.name,
-        size: item.size,
-        design: item.design,
-        shed: item.shed,
-        price: itemPrice,
-        quantity: orderQuantity,
-        total: itemPrice * orderQuantity,
-      };
-    });
+        // Return the processed item variant
+        return {
+          _id: item._id,
+          name: item.name,
+          size: size.size,
+          design: design.design,
+          shed: item.shed,
+          price: itemPrice,
+          totalQuantity: orderQuantity,
+          total: itemPrice * orderQuantity,
+        };
+      });
 
-    const totalAmount = processedItems.reduce(
+      // Save the item **once** after processing all sizes and designs
+      await item.save();
+
+      return processedVariants;
+    }));
+
+    // Flatten the processedItems array since each item could have multiple variants
+    const allProcessedItems = processedItems.flat();
+
+    const totalAmount = allProcessedItems.reduce(
       (acc, item) => acc + item.total,
       0
     );
 
-    // Save order to database
+    // Save order to database with all item variants
     const newOrder = new Order({
       customerName,
       mobile,
       email: email || "NA",
       address: address || "NA",
-      items: processedItems.map((item) => ({
+      items: allProcessedItems.map((item) => ({
         _id: item._id,
         name: item.name,
+        size: item.size,
+        design: item.design,
         price: item.price,
-        quantity: item.quantity,
-        item_total_price: item.price * item.quantity,
+        quantity: item.totalQuantity,
+        item_total_price: item.total,  // Total price for this variant
       })),
       totalAmount,
     });
 
     await newOrder.save();
     res.json({
-      message: "Order created and PDF generated",
+      message: "Order created successfully",
       data: newOrder,
     });
   } catch (error) {
@@ -345,6 +361,99 @@ router.post("/order-without-bill", async (req, res) => {
     res.status(500).json({ message: error.message || "Server error" });
   }
 });
+
+
+
+
+
+// router.post("/order-without-bill", async (req, res) => {
+//   try {
+//     const { customerName, mobile, email, address, items } = req.body;
+
+//     if (
+//       !customerName ||
+//       !mobile ||
+//       !items ||
+//       !Array.isArray(items) ||
+//       items.length === 0
+//     ) {
+//       return res.status(400).json({
+//         message:
+//           "All required fields (customerName, mobile,  items) must be provided, and items must be an array with at least one item.",
+//       });
+//     }
+
+//     // Fetch item details based on the provided item IDs
+//     const itemDetails = await Item.find({
+//       _id: { $in: items.map((item) => item._id) },
+//     });
+
+//     // Calculate total for each item and overall total, and update item quantities
+//     const processedItems = itemDetails.map((item) => {
+//       const orderItem = items.find((i) => i._id === String(item._id)); // Ensure proper comparison
+
+//       if (!orderItem) {
+//         throw new Error(`Item with ID ${item._id} not found in the order`);
+//       }
+
+//       const orderQuantity = Number(orderItem.quantity);
+//       const itemPrice = Number(item.price);
+
+//       // Check for stock availability
+//       if (item.quantity < orderQuantity) {
+//         throw new Error(`Not enough stock for item: ${item.name}`);
+//       }
+
+//       // Reduce item stock by the ordered quantity
+//       item.quantity -= orderQuantity;
+//       item.save(); // Save the updated item to the database
+
+//       return {
+//         _id: item._id,
+//         name: item.name,
+//         size: item.size,
+//         design: item.designs,
+//         shed: item.shed,
+//         price: itemPrice,
+//         quantity: orderQuantity,
+//         total: itemPrice * orderQuantity,
+//       };
+//     });
+
+//     const totalAmount = processedItems.reduce(
+//       (acc, item) => acc + item.total,
+//       0
+//     );
+
+//     // Save order to database
+//     const newOrder = new Order({
+//       customerName,
+//       mobile,
+//       email: email || "NA",
+//       address: address || "NA",
+//       items: processedItems.map((item) => ({
+//         _id: item._id,
+//         name: item.name,
+//         price: item.price,
+//         quantity: item.quantity,
+//         item_total_price: item.price * item.quantity,
+//       })),
+//       totalAmount,
+//     });
+
+//     await newOrder.save();
+//     res.json({
+//       message: "Order created and PDF generated",
+//       data: newOrder,
+//     });
+//   } catch (error) {
+//     console.error("Error creating order:", error.message);
+//     res.status(500).json({ message: error.message || "Server error" });
+//   }
+// });
+
+
+
 //4. Order API - search orders by customerName
 router.get("/search", async (req, res) => {
   try {

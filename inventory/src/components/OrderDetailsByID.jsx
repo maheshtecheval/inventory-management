@@ -82,14 +82,14 @@ function OrderDetailsByID() {
       );
 
       if (response.ok) {
-         toast.success('Delete order successfully...')
+        toast.success("Delete order successfully...");
       } else {
         console.error("Failed to delete order");
-        toast.error('Failed to delete order...')
+        toast.error("Failed to delete order...");
       }
     } catch (error) {
       console.error("Error deleting order:", error);
-      toast.error('Failed to delete order...')
+      toast.error("Failed to delete order...");
     }
   };
 
@@ -105,7 +105,7 @@ function OrderDetailsByID() {
         <Card.Header as="h5">Order Details</Card.Header>
         <Card.Body>
           <Row>
-            <Col md={4}>
+            <Col md={2}>
               <h6>Customer Detail</h6>
               <p>
                 <strong>Name:</strong> {order.customerName || "N/A"}
@@ -116,6 +116,8 @@ function OrderDetailsByID() {
               <p>
                 <strong>Email:</strong> {order.email || "N/A"}
               </p>
+            </Col>
+            <Col md={2}>
               <p>
                 <strong>Address:</strong> {order.address || "N/A"}
               </p>
@@ -137,6 +139,8 @@ function OrderDetailsByID() {
                     <th>Item</th>
                     <th>Price</th>
                     <th>Quantity</th>
+                    <th>Design</th>
+                    <th>Size</th>
                     <th>Total</th>
                   </tr>
                 </thead>
@@ -147,6 +151,8 @@ function OrderDetailsByID() {
                         <td>{item.name || "N/A"}</td>
                         <td>₹{item.price ? item.price : "N/A"}</td>
                         <td>{item.quantity || "N/A"}</td>
+                        <td>{item.design || "N/A"}</td>
+                        <td>{item.size || "N/A"}</td>
                         <td>
                           ₹
                           {item.item_total_price
@@ -187,7 +193,11 @@ function OrderDetailsByID() {
           >
             Print
           </Button>
-          <Button className="me-5" variant="outline-primary" onClick={handleDownload}>
+          <Button
+            className="me-5"
+            variant="outline-primary"
+            onClick={handleDownload}
+          >
             Download PDF
           </Button>
           <Button

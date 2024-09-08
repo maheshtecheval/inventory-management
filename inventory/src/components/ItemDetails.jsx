@@ -8,8 +8,10 @@ function ItemDetails() {
   const navigate = useNavigate();
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [quantityChange, setQuantityChange] = useState(0);
-  const [quantityChangeRemove, setquantityChangeRemove] = useState(0);
+  const [sizeId, setSizeId] = useState(null);
+  const [designId, setDesignId] = useState(null);
+  const [sizeQuantityChange, setSizeQuantityChange] = useState(0);
+  const [designQuantityChange, setDesignQuantityChange] = useState(0);
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -26,55 +28,74 @@ function ItemDetails() {
     fetchItem();
   }, [id]);
 
-  const handleQuantityChange = async (change) => {
-    const updatedItem = { ...item, quantity: item.quantity + change };
-    await fetch(`http://localhost:5000/api/items/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedItem),
-    });
-    setItem(updatedItem);
-  };
-
-  const handleBulkAddQuantityChange = async () => {
-    const change = parseInt(quantityChange, 10);
-    if (isNaN(change)) return;
-
-    const updatedItem = { ...item, quantity: item.quantity + change };
-    await fetch(`http://localhost:5000/api/items/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedItem),
-    });
-    setItem(updatedItem);
-    setQuantityChange(0);
-  };
-  const handleBulkRemoveQuantityChange = async () => {
-    const change = parseInt(quantityChangeRemove, 10);
-    if (isNaN(change)) return;
-    if (change > item.quantity) {
-      toast.error("Inefficient quantity in Stock");
+  const handleSizeQuantityChange = async () => {
+    if (!sizeId) {
+      toast.error("Please select a size.");
       return;
     }
-    const updatedItem = { ...item, quantity: item.quantity - change };
-    await fetch(`http://localhost:5000/api/items/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updatedItem),
-    });
-    setItem(updatedItem);
-    setquantityChangeRemove(0);
+    const change = parseInt(sizeQuantityChange, 10);
+    if (isNaN(change) || change === 0) return;
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/items/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sizeId, sizeQuantityChange: change }),
+      });
+
+      if (response.ok) {
+        const updatedItem = await response.json();
+        setItem(updatedItem);
+        setSizeQuantityChange(0);
+        toast.success("Size quantity updated successfully!");
+      } else {
+        throw new Error("Failed to update size quantity.");
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  const handleDesignQuantityChange = async () => {
+    if (!designId) {
+      toast.error("Please select a design.");
+      return;
+    }
+    const change = parseInt(designQuantityChange, 10);
+    if (isNaN(change) || change === 0) return;
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/items/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ designId, designQuantityChange: change }),
+      });
+
+      if (response.ok) {
+        const updatedItem = await response.json();
+        setItem(updatedItem);
+        setDesignQuantityChange(0);
+        toast.success("Design quantity updated successfully!");
+      } else {
+        throw new Error("Failed to update design quantity.");
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
   };
 
   const handleDelete = async () => {
-    await fetch(`http://localhost:5000/api/items/${id}`, {
-      method: "DELETE",
-    });
-    navigate("/");
+    try {
+      await fetch(`http://localhost:5000/api/items/${id}`, {
+        method: "DELETE",
+      });
+      navigate("/");
+    } catch (error) {
+      toast.error("Failed to delete the item.");
+    }
   };
 
   if (loading) return <Spinner animation="border" variant="primary" />;
-
   if (!item) return <p>Item not found.</p>;
 
   return (
@@ -90,10 +111,26 @@ function ItemDetails() {
                 <strong>Style:</strong> {item.style}
               </Card.Text>
               <Card.Text>
-                <strong>Size:</strong> {item.size}
+                <strong>Size:</strong>
+                <Form.Select onChange={(e) => setSizeId(e.target.value)}>
+                  <option>Select Size</option>
+                  {item.size.map((s) => (
+                    <option key={s._id} value={s._id}>
+                      {s.size} - {s.quantity} in stock
+                    </option>
+                  ))}
+                </Form.Select>
               </Card.Text>
               <Card.Text>
-                <strong>Design:</strong> {item.design}
+                <strong>Design:</strong>
+                <Form.Select onChange={(e) => setDesignId(e.target.value)}>
+                  <option>Select Design</option>
+                  {item.designs.map((d) => (
+                    <option key={d._id} value={d._id}>
+                      {d.design} - {d.quantity} in stock
+                    </option>
+                  ))}
+                </Form.Select>
               </Card.Text>
               <Card.Text>
                 <strong>Shed:</strong> {item.shed}
@@ -101,7 +138,7 @@ function ItemDetails() {
             </Col>
             <Col md={6}>
               <Card.Text>
-                <strong>Quantity In Stock:</strong> {item.quantity}
+                <strong>Quantity In Stock:</strong> {item.totalQuantity}
               </Card.Text>
               <Card.Text>
                 <strong>Price:</strong> ₹ {item.price}
@@ -119,60 +156,37 @@ function ItemDetails() {
               <Col md={6}>
                 <Form.Control
                   type="number"
-                  value={quantityChange}
-                  onChange={(e) => setQuantityChange(e.target.value)}
-                  placeholder="Enter quantity"
+                  value={sizeQuantityChange}
+                  onChange={(e) => setSizeQuantityChange(e.target.value)}
+                  placeholder="Enter quantity for size"
                 />
               </Col>
               <Col md={6} className="text-center">
-                <div className="d-flex justify-content-between mt-2">
-                  <Button
-                    variant="success"
-                    onClick={handleBulkAddQuantityChange}
-                  >
-                    Bulck Add Quantity
-                  </Button>
-                </div>
+                <Button variant="success" onClick={handleSizeQuantityChange}>
+                  Update Size Quantity
+                </Button>
               </Col>
             </Row>
-            <Row className="mt-3">
+            <Row className="mt-3 align-items-center">
               <Col md={6}>
                 <Form.Control
                   type="number"
-                  value={quantityChangeRemove}
-                  onChange={(e) => setquantityChangeRemove(e.target.value)}
-                  placeholder="Enter quantity"
+                  value={designQuantityChange}
+                  onChange={(e) => setDesignQuantityChange(e.target.value)}
+                  placeholder="Enter quantity for design"
                 />
               </Col>
               <Col md={6} className="text-center">
-                <div className="d-flex justify-content-between mt-2">
-                  <Button
-                    variant="primary"
-                    onClick={handleBulkRemoveQuantityChange}
-                  >
-                    Bulck Remove Quantity
-                  </Button>
-                </div>
+                <Button variant="primary" onClick={handleDesignQuantityChange}>
+                  Update Design Quantity
+                </Button>
               </Col>
             </Row>
             <Row className="mt-5">
-              <Col md={12} className="mt-5">
+              <Col md={12}>
                 <div className="d-flex justify-content-between">
-                  <Button
-                    variant="primary"
-                    onClick={() => handleQuantityChange(1)}
-                  >
-                    +1 Quantity
-                  </Button>
-                  <Button
-                    variant="warning"
-                    onClick={() => handleQuantityChange(-1)}
-                    disabled={item.quantity <= 0}
-                  >
-                    -1 Quantity
-                  </Button>
                   <Button variant="danger" onClick={handleDelete}>
-                    <i className="bi bi-trash"></i>
+                    <i className="bi bi-trash"></i> Delete Item
                   </Button>
                 </div>
               </Col>

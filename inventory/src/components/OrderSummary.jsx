@@ -1,17 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal, Button, Form } from "react-bootstrap";
 import { toast } from "react-toastify";
+
 const OrderSummary = ({ selectedItems }) => {
-  const [items, setItems] = useState(selectedItems);
-  const [orderItems, setOrderItems] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [showGenerateBill, setShowGenerateBill] = useState(false);
+  const [items, setItems] = useState(selectedItems); // Store selectedItems in local state
   const [customerDetails, setCustomerDetails] = useState({
     customerName: "",
     mobile: "",
     email: "",
     address: "",
   });
+
+  useEffect(() => {
+    setItems(selectedItems); // Initialize items when selectedItems changes
+  }, [selectedItems]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -22,16 +26,19 @@ const OrderSummary = ({ selectedItems }) => {
   };
 
   const handleQuantityChange = (id, newQuantity) => {
-    setOrderItems((prev) =>
+    setItems((prev) =>
       prev.map((item) =>
-        item._id === id ? { ...item, quantity: newQuantity } : item
+        item.selectedDesignId === id
+          ? { ...item, quantity: newQuantity, price: item.unitPrice * newQuantity }
+          : item
       )
     );
   };
+
   const handlePriceChange = (id, newPrice) => {
-    setOrderItems((prev) =>
+    setItems((prev) =>
       prev.map((item) =>
-        item._id === id ? { ...item, price: newPrice } : item
+        item.selectedDesignId === id ? { ...item, price: newPrice } : item
       )
     );
   };
@@ -43,14 +50,15 @@ const OrderSummary = ({ selectedItems }) => {
         mobile: customerDetails.mobile,
         email: customerDetails.email,
         address: customerDetails.address,
-        items: orderItems.map((item) => ({
+        items: items.map((item) => ({
           _id: item._id,
           name: item.name,
           price: item.price,
           quantity: item.quantity,
+          size: item.selectedSize,
+          design: item.selectedDesign,
         })),
       };
-
       const response = await fetch(
         "http://localhost:5000/api/orders/create-order",
         {
@@ -68,9 +76,6 @@ const OrderSummary = ({ selectedItems }) => {
         toast.success("Order created successfully!");
         setShowGenerateBill(false);
         setShowModal(false);
-        // setTimeout(() => {
-        //   window.location.reload();
-        // }, 700);
       } else {
         toast.error(result.message || "Failed to create order.");
       }
@@ -87,14 +92,15 @@ const OrderSummary = ({ selectedItems }) => {
         mobile: customerDetails.mobile,
         email: customerDetails.email,
         address: customerDetails.address,
-        items: orderItems.map((item) => ({
+        items: items.map((item) => ({
           _id: item._id,
           name: item.name,
           price: item.price,
           quantity: item.quantity,
+          size: item.selectedSize,
+          design: item.selectedDesign,
         })),
       };
-
       const response = await fetch(
         "http://localhost:5000/api/orders/order-without-bill",
         {
@@ -106,51 +112,32 @@ const OrderSummary = ({ selectedItems }) => {
 
       const result = await response.json();
       if (response.ok) {
-        // if (result.pdfUrl) {
-        //   window.open(result.pdfUrl, "_blank");
-        // }
         toast.success("Order created successfully!");
         setShowGenerateBill(false);
         setShowModal(false);
-        // setTimeout(() => {
-        //   window.location.reload();
-        // }, 700);
       } else {
         toast.error(result.message || "Failed to create order.");
       }
     } catch (error) {
-      console.error("Error in bill generation:", error);
+      console.error("Error in order creation:", error);
       toast.error("An error occurred while creating the order.");
     }
   };
 
-  const handleCreateOrder = async () => {
-    try {
-      const response = await fetch(
-        "http://localhost:5000/api/items/get-multiple",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ids: selectedItems }),
-        }
-      );
-      const data = await response.json();
-      // setOrderItems(data);
-      setOrderItems(data.map((item) => ({ ...item, quantity: 1 })));
-      setShowGenerateBill(true);
-      setShowModal(true);
-    } catch (error) {
-      console.error("Error in creating order:", error);
-    }
+  const showOrderDetails = () => {
+    setShowModal(true);
+    setShowGenerateBill(true);
   };
-  const totalAmount = orderItems.reduce(
+
+  const totalAmount = items.reduce(
     (sum, item) => sum + item.quantity * item.price,
     0
   );
+
   return (
     <div>
       <div className="d-flex justify-content-center mt-1">
-        <Button className="btn btn-primary" onClick={handleCreateOrder}>
+        <Button className="btn btn-primary" onClick={showOrderDetails}>
           Create Order
         </Button>
       </div>
@@ -197,7 +184,6 @@ const OrderSummary = ({ selectedItems }) => {
                     placeholder="Email Address"
                     value={customerDetails.email}
                     onChange={handleInputChange}
-                    // required
                   />
                 </Form.Group>
 
@@ -209,22 +195,21 @@ const OrderSummary = ({ selectedItems }) => {
                     placeholder="Home Address"
                     value={customerDetails.address}
                     onChange={handleInputChange}
-                    // required
                   />
                 </Form.Group>
               </div>
 
               <h5 className="mt-2">Order Items</h5>
               <ul className="list-group list-group-flush">
-                {orderItems.map((item) => (
+                {items.map((item) => (
                   <li
-                    key={item._id}
+                    key={`${item._id}-${item.selectedSize}-${item.selectedDesign}`}
                     className="list-group-item d-flex justify-content-between align-items-center"
                   >
                     <div className="flex-grow-1">
                       <h6 className="mb-2">
-                        {item.name} | {item.size} | {item.design} | {item.shed}{" "}
-                        | {item.style}
+                        {item.name} | {item.selectedSize} |{" "}
+                        {item.selectedDesign} | {item.shed} | {item.style}
                       </h6>
                       <div className="d-flex flex-column flex-md-row align-items-center">
                         <div className="input-group mb-3 mb-md-0 me-md-3">
@@ -236,7 +221,7 @@ const OrderSummary = ({ selectedItems }) => {
                             value={item.quantity}
                             onChange={(e) =>
                               handleQuantityChange(
-                                item._id,
+                                item.selectedDesignId,
                                 parseInt(e.target.value)
                               )
                             }
@@ -251,37 +236,34 @@ const OrderSummary = ({ selectedItems }) => {
                             value={item.price}
                             onChange={(e) =>
                               handlePriceChange(
-                                item._id,
+                                item.selectedDesignId,
                                 parseInt(e.target.value)
                               )
                             }
                           />
                         </div>
-                        <div className="input-group">
-                          {item.quantity} x ₹ {item.price} = ₹{" "}
-                          {item.quantity * item.price}
-                        </div>
                       </div>
                     </div>
+                    <span className="badge bg-primary rounded-pill">
+                      ₹ {item.quantity * item.price}
+                    </span>
                   </li>
                 ))}
-                <div className="d-flex justify-content-end mt-1">
-                  <p>
-                    <strong>Total Amount: ₹ {totalAmount}</strong>
-                  </p>
-                </div>
               </ul>
             </Form>
+            <div className="d-flex justify-content-end mt-3">
+              <h4>Total Amount: ₹ {totalAmount}</h4>
+            </div>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowModal(false)}>
-              Close
+            <Button
+              className="btn btn-secondary me-2"
+              onClick={handleSubmitOnlyOrder}
+            >
+              Submit Order Without Bill
             </Button>
-            <Button variant="primary" onClick={handleSubmitOnlyOrder}>
-              Sell
-            </Button>
-            <Button variant="primary" onClick={handleSubmitOrder}>
-              Sell & Bill
+            <Button className="btn btn-primary" onClick={handleSubmitOrder}>
+              Generate Bill & Submit Order
             </Button>
           </Modal.Footer>
         </Modal>

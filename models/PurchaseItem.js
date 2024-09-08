@@ -1,26 +1,15 @@
-const mongoose = require("mongoose");
+// models/PurchaseItem.js
+const mongoose = require('mongoose');
 
-const PurchaseItemSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true },
-    style: { type: String },
-    size: { type: String },
-    design: { type: String },
-    shed: { type: String },
-    quantity: { type: Number, required: true },
-    price: { type: Number, required: true },
-    unit: { type: String }, // Box/Sqft/No
-    category: {
-      type: String,
-      enum: ["Tiles", "Bath Tub", "Wash Basin"],
-      required: true,
-    }, // New category field
-    notes: { type: String },
-  },
-  {
-    timestamps: true,
-  }
-);
+const PurchaseItemSchema = new mongoose.Schema({
+  itemId: { type: mongoose.Schema.Types.ObjectId, ref: 'Item', required: true },
+  sizeId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  designId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  quantity: { type: Number, required: true },
+  price: Number,
+  unit: String,
+  category: String,
+  notes: String,
+}, { timestamps: true });
 
-const PurchaseItem = mongoose.model("PurchaseItem", PurchaseItemSchema);
-module.exports = PurchaseItem;
+module.exports = mongoose.model('PurchaseItem', PurchaseItemSchema);

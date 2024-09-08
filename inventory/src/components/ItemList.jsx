@@ -1,78 +1,97 @@
 import { useEffect, useState } from "react";
-import { Modal, Button, Form, Table, Row, Col, Card } from "react-bootstrap"; // Import necessary Bootstrap components
+import {
+  Modal,
+  Button,
+  Form,
+  Table,
+  Row,
+  Col,
+  Card,
+  InputGroup,
+  FormControl,
+} from "react-bootstrap"; // Import necessary Bootstrap components
 import SearchBar from "./SearchBar";
 import OrderSummary from "./OrderSummary";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 
 const ITEMS_PER_PAGE = 10;
+// Helper function to calculate total quantity
 
 function ItemList() {
+  const [currentItem, setCurrentItem] = useState(null);
   const [items, setItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedItems, setSelectedItems] = useState([]);
   const [showModal, setShowModal] = useState(false);
-  const [showCaregory, setshowCaregory] = useState(false);
-  const [currentItem, setCurrentItem] = useState(null);
+  const [showCategory, setShowCategory] = useState(false);
+
   const [sortOrder, setSortOrder] = useState("asc");
   const [data, setData] = useState([]);
+  const [selectedSizes, setSelectedSizes] = useState({});
+  const [selectedDesigns, setSelectedDesigns] = useState({});
 
-  const showCaregorywise = () => {
-    setshowCaregory(!showCaregory);
+  console.log(selectedSizes, selectedDesigns);
+  const showCategoryWise = () => {
+    setShowCategory(!showCategory);
   };
+
+  console.log("selectedItems", selectedItems);
+  console.log("filteredItems", filteredItems);
+
   const sortItems = (order) => {
-    const sortedItems = [...filteredItems].sort((a, b) => {
+    return [...filteredItems].sort((a, b) => {
       if (order === "asc") {
-        return a.quantity - b.quantity;
+        return a.totalQuantity - b.totalQuantity;
       } else {
-        return b.quantity - a.quantity;
+        return b.totalQuantity - a.totalQuantity;
       }
     });
-    return sortedItems;
   };
 
   const handleSort = () => {
-    const newOrder = sortOrder === "asc" ? "desc" : "asc";
-    setSortOrder(newOrder);
+    setSortOrder((prevOrder) => (prevOrder === "asc" ? "desc" : "asc"));
   };
 
   const sortedItems = sortItems(sortOrder);
 
   useEffect(() => {
-    try {
-      const fetchItems = async () => {
+    const fetchItems = async () => {
+      try {
         const response = await fetch("http://localhost:5000/api/items");
         const data = await response.json();
         setItems(data);
         setFilteredItems(data);
-      };
-      fetchItems();
-    } catch (error) {
-      console.error(error);
-    }
-  }, [items]);
-
-  useEffect(() => {
-    const fetchDashbordStats = async () => {
-      const response = await fetch(
-        "http://localhost:5000/api/items/dashboard-stats"
-      );
-      const statdata = await response.json();
-      if (response.ok) {
-        setData(statdata);
+      } catch (error) {
+        console.error(error);
       }
     };
-    fetchDashbordStats();
+    fetchItems();
   }, []);
-  console.log(data, 60);
+
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:5000/api/items/dashboard-stats"
+        );
+        const statdata = await response.json();
+        setData(statdata);
+        console.log(statdata, 78);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    fetchDashboardStats();
+  }, []);
+
   const handleSearch = (query) => {
     const lowercasedQuery = query.toLowerCase();
     const filtered = items.filter(
       (item) =>
         item.name.toLowerCase().includes(lowercasedQuery) ||
         item.style.toLowerCase().includes(lowercasedQuery) ||
-        item.size.toLowerCase().includes(lowercasedQuery) ||
         item.category.toLowerCase().includes(lowercasedQuery)
     );
     setFilteredItems(filtered);
@@ -81,14 +100,17 @@ function ItemList() {
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedItems(filteredItems.map((item) => item._id));
+      const allSelectableItems = filteredItems
+        .filter((item) => item.totalQuantity > 0)
+        .map((item) => item._id);
+      setSelectedItems(allSelectableItems);
     } else {
       setSelectedItems([]);
     }
   };
-  console.log(sortedItems);
-  const handleItemSelect = (itemId, quantity) => {
-    if (quantity > 0) {
+
+  const handleItemSelect = (itemId, totalQuantity) => {
+    if (totalQuantity > 0) {
       setSelectedItems((prev) =>
         prev.includes(itemId)
           ? prev.filter((id) => id !== itemId)
@@ -106,14 +128,15 @@ function ItemList() {
       });
       setItems((prev) => prev.filter((item) => item._id !== id));
       setFilteredItems((prev) => prev.filter((item) => item._id !== id));
-      toast.success("Delete Item successfully...");
+      toast.success("Item deleted successfully...");
     } catch (error) {
       console.error(error);
     }
   };
 
   const handleEdit = (item) => {
-    setCurrentItem(item);
+    const totalQuantity = calculateTotalQuantity(item.size, item.designs);
+    setCurrentItem({ ...item, totalQuantity });
     setShowModal(true);
   };
 
@@ -122,42 +145,158 @@ function ItemList() {
     setCurrentItem(null);
   };
 
-  const handleModalSave = async () => {
+  const handleModalSave = async (currentItem) => {
     try {
       await fetch(`http://localhost:5000/api/items/${currentItem._id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(currentItem),
       });
       setItems((prev) =>
-        prev.map((item) =>
-          item._id === currentItem._id ? { ...item, ...currentItem } : item
-        )
+        prev.map((item) => (item._id === currentItem._id ? currentItem : item))
       );
       setFilteredItems((prev) =>
-        prev.map((item) =>
-          item._id === currentItem._id ? { ...item, ...currentItem } : item
-        )
+        prev.map((item) => (item._id === currentItem._id ? currentItem : item))
       );
       handleModalClose();
-      toast.success('Items Ordered successfully...')
+      toast.success("Item updated successfully...");
     } catch (error) {
-      toast.error('Items Ordered Error...', error)
+      toast.error("Error updating item");
     }
-
   };
 
   const handleChange = (e) => {
-    setCurrentItem({
-      ...currentItem,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    setCurrentItem((prevItem) => ({ ...prevItem, [name]: value }));
   };
 
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
+  const handleSizeChange = (index, field, value) => {
+    const newSizes = [...currentItem.size];
+    const oldQuantity = newSizes[index].quantity || 0;
+    const newQuantity = field === "quantity" ? Number(value) : oldQuantity;
+
+    newSizes[index] = { ...newSizes[index], [field]: value };
+
+    const quantityDifference = newQuantity - oldQuantity;
+
+    setCurrentItem((prevItem) => ({
+      ...prevItem,
+      size: newSizes,
+      totalQuantity: prevItem.totalQuantity + quantityDifference,
+    }));
+  };
+
+  const handleDesignChange = (index, field, value) => {
+    const newDesigns = [...currentItem.designs];
+    const oldQuantity = newDesigns[index].quantity || 0;
+    const newQuantity = field === "quantity" ? Number(value) : oldQuantity;
+
+    newDesigns[index] = { ...newDesigns[index], [field]: value };
+
+    const quantityDifference = newQuantity - oldQuantity;
+
+    setCurrentItem((prevItem) => ({
+      ...prevItem,
+      designs: newDesigns,
+      totalQuantity: prevItem.totalQuantity + quantityDifference,
+    }));
+  };
+
+  const addSize = () => {
+    setCurrentItem((prevItem) => ({
+      ...prevItem,
+      size: [...prevItem.size, { size: "", quantity: 0 }],
+    }));
+  };
+
+  const addDesign = () => {
+    setCurrentItem((prevItem) => ({
+      ...prevItem,
+      designs: [...prevItem.designs, { design: "", quantity: 0 }],
+    }));
+  };
+
+  const removeSize = (index) => {
+    const newSizes = currentItem.size.filter((_, i) => i !== index);
+    setCurrentItem((prevItem) => ({
+      ...prevItem,
+      size: newSizes,
+      totalQuantity: calculateTotalQuantity(newSizes, currentItem.designs),
+    }));
+  };
+
+  const removeDesign = (index) => {
+    const newDesigns = currentItem.designs.filter((_, i) => i !== index);
+    setCurrentItem((prevItem) => ({
+      ...prevItem,
+      designs: newDesigns,
+      totalQuantity: calculateTotalQuantity(currentItem.size, newDesigns),
+    }));
+  };
+
+  const calculateTotalQuantity = (sizes, designs) => {
+    const sizeTotal = sizes.reduce(
+      (sum, item) => sum + (Number(item.quantity) || 0),
+      0
+    );
+    const designTotal = designs.reduce(
+      (sum, item) => sum + (Number(item.quantity) || 0),
+      0
+    );
+    return sizeTotal + designTotal;
+  };
+
+  const handleSizeChangeForTable = (itemId, value) => {
+    setSelectedSizes((prev) => ({
+      ...prev,
+      [itemId]: value,
+    }));
+  };
+
+  const handleDesignChangeForTable = (itemId, value) => {
+    setSelectedDesigns((prev) => ({
+      ...prev,
+      [itemId]: value,
+    }));
+  };
+
+  const handleAddItemWithSizeDesign = (item) => {
+    const selectedSize = selectedSizes[item._id];
+    const selectedDesign = selectedDesigns[item._id];
+
+    // Check if both size and design are selected
+    if (!selectedSize || !selectedDesign) {
+      toast.info("Please select both size and design.");
+      return;
+    }
+
+    // Find the selected size and design details from the item
+    const sizeDetails = item.size.find((size) => size._id === selectedSize);
+    const designDetails = item.designs.find(
+      (design) => design._id === selectedDesign
+    );
+
+    if (!sizeDetails || !designDetails) {
+      toast.info("Invalid size or design selection.");
+      return;
+    }
+
+    // Add the item with all sizes and designs (but only selected size and design for display)
+    const updatedSelectedItem = {
+      ...item,
+      selectedSize: sizeDetails.size,
+      selectedSizeId: sizeDetails._id, // Storing ID for reference
+      selectedDesign: designDetails.design,
+      selectedDesignId: designDetails._id, // Storing ID for reference
+      quantity: 1, // Default quantity (you can adjust this as needed)
+    };
+
+    setSelectedItems((prev) => [
+      ...prev, // Prevent duplicates
+      updatedSelectedItem,
+    ]);
+
+    toast.success("Item added with selected size and design!");
   };
 
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -165,9 +304,11 @@ function ItemList() {
     startIndex,
     startIndex + ITEMS_PER_PAGE
   );
+  console.log(selectedItems);
 
   return (
     <div className="container-fluid">
+      {/* Dashboard Stats */}
       <div className="container-fluid mt-2">
         {data.categoryWiseQuantity ? (
           <>
@@ -219,7 +360,7 @@ function ItemList() {
                     <Card.Text>
                       <Button
                         className="btn btn-info btn-sm m-2"
-                        onClick={showCaregorywise}
+                        onClick={showCategoryWise}
                       >
                         {" "}
                         <i className="bi bi-eye"></i> Category Wise Quantity
@@ -228,7 +369,7 @@ function ItemList() {
                   </Card.Body>
                 </Card>
               </Col>
-              {showCaregory ? (
+              {showCategory ? (
                 <>
                   {" "}
                   <Col md={12}>
@@ -259,19 +400,31 @@ function ItemList() {
           <></>
         )}
       </div>
+
+      {/* Search Bar */}
       <div className="d-flex justify-content-center">
         <SearchBar onSearch={handleSearch} />{" "}
       </div>
+
+      {/* Item Table */}
       <div className="table-responsive custom-table-wrapper">
         <Table className="table table-hover align-middle table-bordered custom-table">
           <thead>
             <tr>
               <th>
-                <input type="checkbox" onChange={handleSelectAll} />
+                <input
+                  type="checkbox"
+                  onChange={handleSelectAll}
+                  checked={
+                    selectedItems.length ===
+                    filteredItems.filter((item) => item.totalQuantity > 0)
+                      .length
+                  }
+                />
               </th>
               <th>Name</th>
               <th onClick={handleSort} style={{ cursor: "pointer" }}>
-                Quantity {sortOrder === "asc" ? "▲" : "▼"}
+                totalQuantity {sortOrder === "asc" ? "▲" : "▼"}
               </th>
               <th>Style</th>
               <th>Size</th>
@@ -290,26 +443,59 @@ function ItemList() {
                   <input
                     type="checkbox"
                     checked={selectedItems.includes(item._id)}
-                    onChange={() => handleItemSelect(item._id, item.quantity)}
+                    onChange={() =>
+                      handleItemSelect(item._id, item.totalQuantity)
+                    }
                   />
                 </td>
                 <td>{item.name}</td>
                 <td
                   style={{
                     color:
-                      item.quantity === 0
+                      item.totalQuantity === 0
                         ? "red"
-                        : item.quantity < 10
+                        : item.totalQuantity < 10
                         ? "orange"
                         : "green",
                     fontWeight: "bold",
                   }}
                 >
-                  {item.quantity}
+                  {item.totalQuantity}
                 </td>
                 <td>{item.style}</td>
-                <td>{item.size}</td>
-                <td>{item.design}</td>
+                <td>
+                  <Form.Select
+                    value={selectedSizes[item._id] || ""}
+                    onChange={(e) =>
+                      handleSizeChangeForTable(item._id, e.target.value)
+                    }
+                  >
+                    <option>Select Size</option>
+                    {item.size.map((sizeOption, index) => (
+                      <option key={index} value={sizeOption._id || sizeOption}>
+                        {sizeOption.size || sizeOption}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </td>
+                <td>
+                  <Form.Select
+                    value={selectedDesigns[item._id] || ""}
+                    onChange={(e) =>
+                      handleDesignChangeForTable(item._id, e.target.value)
+                    }
+                  >
+                    <option>Select Design</option>
+                    {item.designs.map((designOption, index) => (
+                      <option
+                        key={index}
+                        value={designOption._id || designOption}
+                      >
+                        {designOption.design || designOption}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </td>
                 <td>{item.shed}</td>
                 <td>{item.price}</td>
                 <td>{item.unit}</td>
@@ -327,6 +513,12 @@ function ItemList() {
                     </Link>
                   </button>
                   <button
+                    className="btn btn-success btn-sm me-2"
+                    onClick={() => handleAddItemWithSizeDesign(item)}
+                  >
+                    <i class="bi bi-cart"></i>
+                  </button>
+                  <button
                     className="btn btn-danger btn-sm"
                     onClick={() => handleDelete(item._id)}
                   >
@@ -339,63 +531,31 @@ function ItemList() {
         </Table>
       </div>
 
+      {/* Pagination */}
       <div className="d-flex justify-content-center">
-        <nav aria-label="Page navigation">
-          <ul className="pagination">
-            <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-              <button
-                className="page-link"
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </button>
-            </li>
-
-            {Array.from(
-              { length: Math.ceil(filteredItems.length / ITEMS_PER_PAGE) },
-              (_, i) => (
-                <li
-                  className={`page-item ${
-                    currentPage === i + 1 ? "active" : ""
-                  }`}
-                  key={i}
-                >
-                  <button
-                    className="page-link"
-                    onClick={() => handlePageChange(i + 1)}
-                  >
-                    {i + 1}
-                  </button>
-                </li>
-              )
-            )}
-
+        <ul className="pagination">
+          {Array.from({
+            length: Math.ceil(filteredItems.length / ITEMS_PER_PAGE),
+          }).map((_, index) => (
             <li
+              key={index}
               className={`page-item ${
-                currentPage === Math.ceil(filteredItems.length / ITEMS_PER_PAGE)
-                  ? "disabled"
-                  : ""
+                currentPage === index + 1 ? "active" : ""
               }`}
             >
-              <button
-                className="page-link"
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={
-                  currentPage ===
-                  Math.ceil(filteredItems.length / ITEMS_PER_PAGE)
-                }
+              <Button
+                variant="link"
+                onClick={() => handlePageChange(index + 1)}
               >
-                Next
-              </button>
+                {index + 1}
+              </Button>
             </li>
-          </ul>
-        </nav>
+          ))}
+        </ul>
       </div>
 
-      <OrderSummary selectedItems={selectedItems} />
-
       {/* Modal for editing item */}
+
       <Modal show={showModal} onHide={handleModalClose}>
         <Modal.Header closeButton>
           <Modal.Title>Edit Item</Modal.Title>
@@ -421,23 +581,63 @@ function ItemList() {
                   onChange={handleChange}
                 />
               </Form.Group>
-              <Form.Group className="mb-1" controlId="formSize">
+              <Form.Group className="mb-3">
                 <Form.Label>Size</Form.Label>
-                <Form.Control
-                  type="text"
-                  name="size"
-                  value={currentItem.size}
-                  onChange={handleChange}
-                />
+                {currentItem?.size.map((size, index) => (
+                  <div key={index} className="mb-2">
+                    <InputGroup>
+                      <FormControl
+                        value={size.size}
+                        onChange={(e) =>
+                          handleSizeChange(index, "size", e.target.value)
+                        }
+                      />
+                      <FormControl
+                        type="number"
+                        value={size.quantity}
+                        onChange={(e) =>
+                          handleSizeChange(index, "quantity", e.target.value)
+                        }
+                      />
+                      <Button
+                        variant="danger"
+                        onClick={() => removeSize(index)}
+                      >
+                        Remove
+                      </Button>
+                    </InputGroup>
+                  </div>
+                ))}
+                <Button onClick={addSize}>Add Size</Button>
               </Form.Group>
-              <Form.Group className="mb-1" controlId="formDesign">
+              <Form.Group className="mb-3">
                 <Form.Label>Design</Form.Label>
-                <Form.Control
-                  type="text"
-                  name="design"
-                  value={currentItem.design}
-                  onChange={handleChange}
-                />
+                {currentItem?.designs.map((design, index) => (
+                  <div key={index} className="mb-2">
+                    <InputGroup>
+                      <FormControl
+                        value={design.design}
+                        onChange={(e) =>
+                          handleDesignChange(index, "design", e.target.value)
+                        }
+                      />
+                      <FormControl
+                        type="number"
+                        value={design.quantity}
+                        onChange={(e) =>
+                          handleDesignChange(index, "quantity", e.target.value)
+                        }
+                      />
+                      <Button
+                        variant="danger"
+                        onClick={() => removeDesign(index)}
+                      >
+                        Remove
+                      </Button>
+                    </InputGroup>
+                  </div>
+                ))}
+                <Button onClick={addDesign}>Add Design</Button>
               </Form.Group>
               <Form.Group className="mb-1" controlId="formShed">
                 <Form.Label>Shed</Form.Label>
@@ -445,15 +645,6 @@ function ItemList() {
                   type="text"
                   name="shed"
                   value={currentItem.shed}
-                  onChange={handleChange}
-                />
-              </Form.Group>
-              <Form.Group className="mb-1" controlId="formQuantity">
-                <Form.Label>Quantity</Form.Label>
-                <Form.Control
-                  type="number"
-                  name="quantity"
-                  value={currentItem.quantity}
                   onChange={handleChange}
                 />
               </Form.Group>
@@ -484,6 +675,18 @@ function ItemList() {
                   onChange={handleChange}
                 />
               </Form.Group>
+              <Form.Group className="mb-1" controlId="formTotalQuantity">
+                <Form.Label>Total Quantity</Form.Label>
+                <Form.Control
+                  type="number"
+                  name="totalQuantity"
+                  value={calculateTotalQuantity(
+                    currentItem.size,
+                    currentItem.designs
+                  )}
+                  readOnly
+                />
+              </Form.Group>
               <Form.Group className="mb-1" controlId="formNotes">
                 <Form.Label>Notes</Form.Label>
                 <Form.Control
@@ -501,11 +704,30 @@ function ItemList() {
           <Button variant="secondary" onClick={handleModalClose}>
             Close
           </Button>
-          <Button variant="primary" onClick={handleModalSave}>
+          <Button
+            variant="primary"
+            onClick={() => handleModalSave(currentItem)}
+          >
             Save Changes
           </Button>
         </Modal.Footer>
       </Modal>
+      {/* Show Category Wise Items */}
+      <div className="d-flex justify-content-end">
+        <Button variant="link" onClick={showCategoryWise}>
+          Show Caregory Wise Items
+        </Button>
+      </div>
+
+      {/* Order Summary */}
+      {selectedItems.length > 0 && (
+        <OrderSummary
+          selectedItems={selectedItems}
+          // setSelectedItems={setSelectedItems}
+          selectedSizes={selectedSizes}
+          selectedDesigns={selectedDesigns}
+        />
+      )}
     </div>
   );
 }
