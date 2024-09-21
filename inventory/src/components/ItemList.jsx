@@ -309,7 +309,6 @@ function ItemList() {
 
   return (
     <div className="container-fluid">
-      {/* Dashboard Stats */}
       <div className="container-fluid mt-2">
         {data.categoryWiseQuantity ? (
           <>

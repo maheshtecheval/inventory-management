@@ -4,29 +4,36 @@ const Item = require("../models/Item");
 const Order = require("../models/Order");
 const PurchaseItem = require("../models/PurchaseItem");
 
-// In routes/itemRoutes.js
+// Fetch paginated Purchase Items
 router.get("/purchasesitems", async (req, res) => {
   try {
-    const purchases = await PurchaseItem.find();
-    if (!purchases || purchases.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, message: "No purchases found" });
-    }
-    res.status(200).json({ success: true, data: purchases });
+    const { page = 1, limit = 10 } = req.query;
+
+    const purchases = await PurchaseItem.find()
+      .populate('itemId') // Populating item details from Item schema
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .exec();
+
+    const count = await PurchaseItem.countDocuments();
+
+    res.status(200).json({
+      purchases,
+      totalPages: Math.ceil(count / limit),
+      currentPage: page,
+    });
   } catch (error) {
     console.error("Error fetching purchase data:", error);
-    res
-      .status(500)
-      .json({ success: false, error: "Failed to fetch purchase data" });
+    res.status(500).json({ success: false, error: "Failed to fetch purchase data" });
   }
 });
 
-router.get("/dashboard-stats", async (req, res) => { 
+
+router.get("/dashboard-stats", async (req, res) => {
   try {
     // 1. Total number of items
     const totalItems = await Item.countDocuments();
-    
+
     // 2. Total quantity of items
     const totalQuantity = await Item.aggregate([
       { $group: { _id: null, totalQuantity: { $sum: "$totalQuantity" } } },
@@ -85,7 +92,9 @@ router.get("/dashboard-stats", async (req, res) => {
         totalQuantity.length > 0 ? totalQuantity[0].totalQuantity : 0,
       categoryWiseQuantity,
       highestSellItem: highestSellItem.length > 0 ? highestSellItem[0] : null,
-      highestOrderAmount: highestOrderAmount ? highestOrderAmount.totalAmount : 0,
+      highestOrderAmount: highestOrderAmount
+        ? highestOrderAmount.totalAmount
+        : 0,
       totalOrderAmount: totalOrderAmount[0]?.totalAmount || 0,
     });
   } catch (error) {
@@ -255,7 +264,6 @@ router.get("/category/:category", async (req, res) => {
 });
 
 //9. Get item by ID
-
 router.get("/:id", async (req, res) => {
   try {
     const item = await Item.findById(req.params.id);
@@ -268,19 +276,6 @@ router.get("/:id", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-// router.post("/get-multiple", async (req, res) => {
-//   try {
-//     const { ids } = req.body;
-//     const items = await Item.find({ _id: { $in: ids } });
-//     res.json(items);
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// });
-
-// In your Express route handler
 
 router.post("/get-multiple", async (req, res) => {
   const { ids, sizes, designs } = req.body;
@@ -320,192 +315,51 @@ router.post("/get-multiple", async (req, res) => {
   }
 });
 
-// router.post("/purchase/new", async (req, res) => {
-//   const {
-//     name,
-//     style,
-//     size,
-//     design,
-//     shed,
-//     quantity,
-//     price,
-//     unit,
-//     category,
-//     notes,
-//   } = req.body;
-//   try {
-//     const newPurchaseItem = new PurchaseItem({
-//       name,
-//       style,
-//       size,
-//       design,
-//       shed,
-//       quantity,
-//       price,
-//       unit,
-//       category,
-//       notes,
-//     });
-//     await newPurchaseItem.save();
-
-//     let item = await Item.findOne({ name });
-//     if (item) {
-//       item.quantity += quantity;
-//       await item.save();
-//     } else {
-//       const newItem = new Item({
-//         name,
-//         style,
-//         size,
-//         design,
-//         shed,
-//         quantity,
-//         price,
-//         unit,
-//         category,
-//         notes,
-//       });
-//       await newItem.save();
-//     }
-//     res.status(201).json({ message: "New purchase item added successfully" });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ error: "Failed to add new purchase item" });
-//   }
-// });
-
-// router.post("/purchase", async (req, res) => {
-//   const { _id, quantity } = req.body;
-
-//   try {
-//     let item = await Item.findById(_id);
-//     if (item) {
-//       item.quantity += parseInt(quantity, 10);
-//       await item.save();
-//       const newPurchaseItem = new PurchaseItem({
-//         name: item.name,
-//         style: item.style,
-//         size: item.size,
-//         design: item.design,
-//         shed: item.shed,
-//         quantity: parseInt(quantity, 10),
-//         price: item.price,
-//         unit: item.unit,
-//         category: item.category,
-//         notes: item.notes,
-//       });
-//       await newPurchaseItem.save();
-//       res
-//         .status(200)
-//         .json({
-//           message: "Item quantity updated and purchase recorded successfully",
-//         });
-//     } else {
-//       res.status(404).json({ error: "Item not found" });
-//     }
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ error: "Failed to update item quantity" });
-//   }
-// });
-
 router.post("/purchase/new", async (req, res) => {
-  const {
-    name,
-    style,
-    sizeId,
-    designId,
-    shed,
-    quantity,
-    price,
-    unit,
-    category,
-    notes,
-  } = req.body;
   try {
+    const { itemId, sizeId, designId, quantity, price } = req.body;
+
+    // Step 1: Find the Item by itemId
+    const item = await Item.findById(itemId);
+    if (!item) {
+      return res.status(404).json({ success: false, message: "Item not found" });
+    }
+
+    // Step 2: Find the size and design from the item using sizeId and designId
+    const selectedSize = item.size.find(s => s._id.toString() === sizeId);
+    const selectedDesign = item.designs.find(d => d._id.toString() === designId);
+
+    if (!selectedSize) {
+      return res.status(404).json({ success: false, message: "Size not found" });
+    }
+    if (!selectedDesign) {
+      return res.status(404).json({ success: false, message: "Design not found" });
+    }
+
+    // Step 3: Create a new PurchaseItem and embed the size and design details
     const newPurchaseItem = new PurchaseItem({
       itemId: item._id,
-      sizeId,
-      designId,
-      quantity,
-      price,
-      unit,
-      category,
-      notes,
+      size: {
+        _id: selectedSize._id,
+        size: selectedSize.size
+      },
+      design: {
+        _id: selectedDesign._id,
+        design: selectedDesign.design
+      },
+      quantity: quantity,
+      price: price || item.price // use item price if price is not provided
     });
+
+    // Step 4: Save the new PurchaseItem
     await newPurchaseItem.save();
 
-    let item = await Item.findOne({ name });
-    if (item) {
-      // Update total quantity and size/design quantities
-      const size = item.size.find((s) => s._id.equals(sizeId));
-      const design = item.designs.find((d) => d._id.equals(designId));
-      if (size && design) {
-        size.quantity += quantity;
-        design.quantity += quantity;
-        item.totalQuantity += quantity;
-        await item.save();
-      } else {
-        res.status(404).json({ error: "Size or Design not found" });
-      }
-    } else {
-      // Create new item
-      const newItem = new Item({
-        name,
-        style,
-        shed,
-        price,
-        unit,
-        category,
-        totalQuantity: quantity,
-        size: [{ _id: sizeId, size: sizeId.size, quantity }],
-        designs: [{ _id: designId, design: designId.design, quantity }],
-        notes,
-      });
-      await newItem.save();
-    }
-    res.status(201).json({ message: "New purchase item added successfully" });
+    res.status(201).json({ success: true, data: newPurchaseItem });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to add new purchase item" });
+    console.error("Error creating purchase item:", error);
+    res.status(500).json({ success: false, error: "Failed to create purchase item" });
   }
 });
 
-router.post("/purchase", async (req, res) => {
-  const { itemId, sizeId, designId, quantity } = req.body;
-
-  try {
-    let item = await Item.findById(itemId);
-    if (item) {
-      const size = item.size.find((s) => s._id.equals(sizeId));
-      const design = item.designs.find((d) => d._id.equals(designId));
-      if (size && design) {
-        size.quantity += quantity;
-        design.quantity += quantity;
-        item.totalQuantity += quantity;
-        await item.save();
-      }
-
-      const newPurchaseItem = new PurchaseItem({
-        itemId,
-        sizeId,
-        designId,
-        quantity,
-      });
-      await newPurchaseItem.save();
-
-      res
-        .status(200)
-        .json({
-          message: "Item quantity updated and purchase recorded successfully",
-        });
-    } else {
-      res.status(404).json({ error: "Item not found" });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to update item quantity" });
-  }
-});
 
 module.exports = router;
