@@ -5,33 +5,53 @@ const Order = require("../models/Order");
 const PurchaseItem = require("../models/PurchaseItem");
 
 // In routes/itemRoutes.js
-router.get("/purchases", async (req, res) => {
+router.get("/purchasesitems", async (req, res) => {
   try {
-    const purchases = await PurchaseItem.find().populate("item");
-    res.status(200).json(purchases);
+    const purchases = await PurchaseItem.find();
+    if (!purchases || purchases.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "No purchases found" });
+    }
+    res.status(200).json({ success: true, data: purchases });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Failed to fetch purchase data" });
+    console.error("Error fetching purchase data:", error);
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to fetch purchase data" });
   }
 });
 
-router.get("/dashboard-stats", async (req, res) => {
+router.get("/dashboard-stats", async (req, res) => { 
   try {
     // 1. Total number of items
     const totalItems = await Item.countDocuments();
+    
     // 2. Total quantity of items
-
     const totalQuantity = await Item.aggregate([
       { $group: { _id: null, totalQuantity: { $sum: "$totalQuantity" } } },
       { $project: { _id: 0, totalQuantity: 1 } },
     ]);
 
-    // 3. Category-wise quantity of items
+    // 3. Category-wise quantity of items with sizes and designs
     const categoryWiseQuantity = await Item.aggregate([
       {
-        $group: { _id: "$category", totalQuantity: { $sum: "$totalQuantity" } },
+        $group: {
+          _id: "$category",
+          totalQuantity: { $sum: "$totalQuantity" },
+          sizes: { $push: "$size" },
+          designs: { $push: "$designs" },
+        },
       },
-      { $project: { category: "$_id", totalQuantity: 1, _id: 0 } },
+      {
+        $project: {
+          category: "$_id",
+          totalQuantity: 1,
+          sizes: 1,
+          designs: 1,
+          _id: 0,
+        },
+      },
     ]);
 
     // 4. Highest sell item (based on quantity sold)
@@ -48,6 +68,7 @@ router.get("/dashboard-stats", async (req, res) => {
     const highestOrderAmount = await Order.findOne()
       .sort({ totalAmount: -1 })
       .limit(1);
+
     // 6. Total Order Amount (Sum of all order totals)
     const totalOrderAmount = await Order.aggregate([
       {
@@ -57,15 +78,14 @@ router.get("/dashboard-stats", async (req, res) => {
         },
       },
     ]);
+
     res.json({
       totalItems,
       totalQuantity:
         totalQuantity.length > 0 ? totalQuantity[0].totalQuantity : 0,
       categoryWiseQuantity,
       highestSellItem: highestSellItem.length > 0 ? highestSellItem[0] : null,
-      highestOrderAmount: highestOrderAmount
-        ? highestOrderAmount.totalAmount
-        : 0,
+      highestOrderAmount: highestOrderAmount ? highestOrderAmount.totalAmount : 0,
       totalOrderAmount: totalOrderAmount[0]?.totalAmount || 0,
     });
   } catch (error) {
@@ -73,6 +93,7 @@ router.get("/dashboard-stats", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 // 1. Add Item
 router.post("/add", async (req, res) => {
   try {
@@ -299,12 +320,101 @@ router.post("/get-multiple", async (req, res) => {
   }
 });
 
+// router.post("/purchase/new", async (req, res) => {
+//   const {
+//     name,
+//     style,
+//     size,
+//     design,
+//     shed,
+//     quantity,
+//     price,
+//     unit,
+//     category,
+//     notes,
+//   } = req.body;
+//   try {
+//     const newPurchaseItem = new PurchaseItem({
+//       name,
+//       style,
+//       size,
+//       design,
+//       shed,
+//       quantity,
+//       price,
+//       unit,
+//       category,
+//       notes,
+//     });
+//     await newPurchaseItem.save();
+
+//     let item = await Item.findOne({ name });
+//     if (item) {
+//       item.quantity += quantity;
+//       await item.save();
+//     } else {
+//       const newItem = new Item({
+//         name,
+//         style,
+//         size,
+//         design,
+//         shed,
+//         quantity,
+//         price,
+//         unit,
+//         category,
+//         notes,
+//       });
+//       await newItem.save();
+//     }
+//     res.status(201).json({ message: "New purchase item added successfully" });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ error: "Failed to add new purchase item" });
+//   }
+// });
+
+// router.post("/purchase", async (req, res) => {
+//   const { _id, quantity } = req.body;
+
+//   try {
+//     let item = await Item.findById(_id);
+//     if (item) {
+//       item.quantity += parseInt(quantity, 10);
+//       await item.save();
+//       const newPurchaseItem = new PurchaseItem({
+//         name: item.name,
+//         style: item.style,
+//         size: item.size,
+//         design: item.design,
+//         shed: item.shed,
+//         quantity: parseInt(quantity, 10),
+//         price: item.price,
+//         unit: item.unit,
+//         category: item.category,
+//         notes: item.notes,
+//       });
+//       await newPurchaseItem.save();
+//       res
+//         .status(200)
+//         .json({
+//           message: "Item quantity updated and purchase recorded successfully",
+//         });
+//     } else {
+//       res.status(404).json({ error: "Item not found" });
+//     }
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ error: "Failed to update item quantity" });
+//   }
+// });
+
 router.post("/purchase/new", async (req, res) => {
   const {
     name,
     style,
-    size,
-    design,
+    sizeId,
+    designId,
     shed,
     quantity,
     price,
@@ -312,15 +422,11 @@ router.post("/purchase/new", async (req, res) => {
     category,
     notes,
   } = req.body;
-
   try {
-    // Create new purchase item
     const newPurchaseItem = new PurchaseItem({
-      name,
-      style,
-      size,
-      design,
-      shed,
+      itemId: item._id,
+      sizeId,
+      designId,
       quantity,
       price,
       unit,
@@ -329,29 +435,35 @@ router.post("/purchase/new", async (req, res) => {
     });
     await newPurchaseItem.save();
 
-    // Check if item already exists in Item schema
     let item = await Item.findOne({ name });
     if (item) {
-      // If item exists, update its quantity
-      item.quantity += quantity;
-      await item.save();
+      // Update total quantity and size/design quantities
+      const size = item.size.find((s) => s._id.equals(sizeId));
+      const design = item.designs.find((d) => d._id.equals(designId));
+      if (size && design) {
+        size.quantity += quantity;
+        design.quantity += quantity;
+        item.totalQuantity += quantity;
+        await item.save();
+      } else {
+        res.status(404).json({ error: "Size or Design not found" });
+      }
     } else {
-      // If item doesn't exist, create a new entry
+      // Create new item
       const newItem = new Item({
         name,
         style,
-        size,
-        design,
         shed,
-        quantity,
         price,
         unit,
         category,
+        totalQuantity: quantity,
+        size: [{ _id: sizeId, size: sizeId.size, quantity }],
+        designs: [{ _id: designId, design: designId.design, quantity }],
         notes,
       });
       await newItem.save();
     }
-
     res.status(201).json({ message: "New purchase item added successfully" });
   } catch (error) {
     console.error(error);
@@ -360,27 +472,25 @@ router.post("/purchase/new", async (req, res) => {
 });
 
 router.post("/purchase", async (req, res) => {
-  const { _id, quantity } = req.body;
+  const { itemId, sizeId, designId, quantity } = req.body;
 
   try {
-    // Find the item by ID and update the quantity
-    let item = await Item.findById(_id);
+    let item = await Item.findById(itemId);
     if (item) {
-      item.quantity += parseInt(quantity, 10);
-      await item.save();
+      const size = item.size.find((s) => s._id.equals(sizeId));
+      const design = item.designs.find((d) => d._id.equals(designId));
+      if (size && design) {
+        size.quantity += quantity;
+        design.quantity += quantity;
+        item.totalQuantity += quantity;
+        await item.save();
+      }
 
-      // Add a new record in the PurchaseItem schema
       const newPurchaseItem = new PurchaseItem({
-        name: item.name,
-        style: item.style,
-        size: item.size,
-        design: item.design,
-        shed: item.shed,
-        quantity: parseInt(quantity, 10),
-        price: item.price,
-        unit: item.unit,
-        category: item.category,
-        notes: item.notes,
+        itemId,
+        sizeId,
+        designId,
+        quantity,
       });
       await newPurchaseItem.save();
 

@@ -9,8 +9,6 @@ dist
 package.json.bak
 .DS_Store
 
-# config file
-.env
 
 # debug
 npm-debug.log*

@@ -4,12 +4,10 @@ const sizeSchema = new mongoose.Schema({
   size: { type: String, required: true },
   quantity: { type: Number, required: true },
 });
-
 const designSchema = new mongoose.Schema({
   design: { type: String, required: true },
   quantity: { type: Number, required: true },
 });
-
 const itemSchema = new mongoose.Schema({
   name: { type: String, required: true },
   style: { type: String },
@@ -17,34 +15,17 @@ const itemSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   size: [sizeSchema],
   unit: { type: String }, // Box/Sqft/No
-  designNo:{ type: String },
-  totalQuantity:{ type: Number, required: true },
+  designNo: { type: String },
+  totalQuantity: { type: Number, required: true },
   category: {
     type: String,
-    enum: ["Tiles", "Bath Tub", "Wash Basin"],
     required: true,
-  }, 
+  },
   designs: [designSchema],
   notes: { type: String },
 });
-
 const Item = mongoose.model("Item", itemSchema);
 module.exports = Item;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // const mongoose = require('mongoose');
 

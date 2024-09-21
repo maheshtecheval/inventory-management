@@ -32,7 +32,6 @@ function ItemList() {
   const [selectedSizes, setSelectedSizes] = useState({});
   const [selectedDesigns, setSelectedDesigns] = useState({});
 
-  console.log(selectedSizes, selectedDesigns);
   const showCategoryWise = () => {
     setShowCategory(!showCategory);
   };
@@ -298,7 +297,9 @@ function ItemList() {
 
     toast.success("Item added with selected size and design!");
   };
-
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const currentItems = sortedItems.slice(
     startIndex,
@@ -373,20 +374,111 @@ function ItemList() {
                 <>
                   {" "}
                   <Col md={12}>
-                    <Card>
+                    <Card className="shadow-sm">
+                      <Card.Header className="bg-primary text-white">
+                        <Card.Title className="mb-0 text-center ">
+                          Category Wise Quantity
+                        </Card.Title>
+                      </Card.Header>
                       <Card.Body>
-                        <Card.Title>Category Wise Quantity</Card.Title>
-                        <ul className="list-group list-group-flush">
+                        <div className="accordion" id="categoryAccordion">
                           {data.categoryWiseQuantity.map((category, index) => (
-                            <li
-                              key={index}
-                              className="list-group-item d-flex justify-content-between align-items-center list-group-item list-group-item-action list-group-item-primary"
-                            >
-                              <span>{category.category}</span>
-                              <span>{category.totalQuantity}</span>
-                            </li>
+                            <div key={index} className="accordion-item mb-3">
+                              <h2
+                                className="accordion-header"
+                                id={`heading-${index}`}
+                              >
+                                <button
+                                  className="accordion-button bg-success text-white d-flex justify-content-around align-items-center"
+                                  type="button"
+                                  data-bs-toggle="collapse"
+                                  data-bs-target={`#collapse-${index}`}
+                                  aria-expanded="true"
+                                  aria-controls={`collapse-${index}`}
+                                >
+                                  <div className="me-auto">
+                                    <strong>{category.category}</strong>
+                                  </div>
+                                  <span className="badge bg-light text-dark ms-2">
+                                    {category.totalQuantity}
+                                  </span>
+                                </button>
+                              </h2>
+                              <div
+                                id={`collapse-${index}`}
+                                className="accordion-collapse collapse show"
+                                aria-labelledby={`heading-${index}`}
+                                data-bs-parent="#categoryAccordion"
+                              >
+                                <div className="accordion-body bg-light p-3">
+                                  {/* Display sizes */}
+                                  <div className="mb-4">
+                                    <h6 className="text-primary fw-bold">
+                                      Sizes
+                                    </h6>
+                                    <div className="table-responsive">
+                                      <table className="table table-bordered table-hover align-middle">
+                                        <thead className="table-secondary">
+                                          <tr>
+                                            <th style={{ width: "50%" }}>
+                                              Size
+                                            </th>
+                                            <th style={{ width: "50%" }}>
+                                              Quantity
+                                            </th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {category.sizes.map((sizeArray) =>
+                                            sizeArray.map((size, sIndex) => (
+                                              <tr key={sIndex}>
+                                                <td>{size.size}</td>
+                                                <td>{size.quantity}</td>
+                                              </tr>
+                                            ))
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+
+                                  {/* Display designs */}
+                                  <div>
+                                    <h6 className="text-primary fw-bold">
+                                      Designs
+                                    </h6>
+                                    <div className="table-responsive">
+                                      <table className="table table-bordered table-hover align-middle">
+                                        <thead className="table-secondary">
+                                          <tr>
+                                            <th style={{ width: "50%" }}>
+                                              Design
+                                            </th>
+                                            <th style={{ width: "50%" }}>
+                                              Quantity
+                                            </th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {category.designs.map((designArray) =>
+                                            designArray.map(
+                                              (design, dIndex) => (
+                                                <tr key={dIndex}>
+                                                  <td>{design.design}</td>
+                                                  <td>{design.quantity}</td>
+                                                </tr>
+                                              )
+                                            )
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       </Card.Body>
                     </Card>
                   </Col>
@@ -533,25 +625,57 @@ function ItemList() {
 
       {/* Pagination */}
       <div className="d-flex justify-content-center">
-        <ul className="pagination">
-          {Array.from({
-            length: Math.ceil(filteredItems.length / ITEMS_PER_PAGE),
-          }).map((_, index) => (
+        <nav aria-label="Page navigation">
+          <ul className="pagination">
+            <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+              <button
+                className="page-link"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </button>
+            </li>
+
+            {Array.from(
+              { length: Math.ceil(filteredItems.length / ITEMS_PER_PAGE) },
+              (_, i) => (
+                <li
+                  className={`page-item ${
+                    currentPage === i + 1 ? "active" : ""
+                  }`}
+                  key={i}
+                >
+                  <button
+                    className="page-link"
+                    onClick={() => handlePageChange(i + 1)}
+                  >
+                    {i + 1}
+                  </button>
+                </li>
+              )
+            )}
+
             <li
-              key={index}
               className={`page-item ${
-                currentPage === index + 1 ? "active" : ""
+                currentPage === Math.ceil(filteredItems.length / ITEMS_PER_PAGE)
+                  ? "disabled"
+                  : ""
               }`}
             >
-              <Button
-                variant="link"
-                onClick={() => handlePageChange(index + 1)}
+              <button
+                className="page-link"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={
+                  currentPage ===
+                  Math.ceil(filteredItems.length / ITEMS_PER_PAGE)
+                }
               >
-                {index + 1}
-              </Button>
+                Next
+              </button>
             </li>
-          ))}
-        </ul>
+          </ul>
+        </nav>
       </div>
 
       {/* Modal for editing item */}
